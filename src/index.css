@@ -1,0 +1,81 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Condensed:wght@700&family=Roboto+Mono:wght@500&display=swap');
+
+:root {
+  --steel-blue: #336699;
+  --professional-blue: #3B82F6;
+  --carbon-black: #121212;
+  --concrete-gray: #333333;
+  --equipment-yellow: #F9D71C;
+  --blueprint-blue: #0D47A1;
+  --warning-red: #D32F2F;
+  --success-green: #388E3C;
+  --industrial-silver: #9E9E9E;
+  --border-neutral: #555555;
+  --text-primary: rgba(255,255,255,0.9);
+  --text-secondary: rgba(255,255,255,0.6);
+  --text-disabled: rgba(255,255,255,0.38);
+}
+
+/* Light mode variables */
+.light {
+  --carbon-black: #ffffff;
+  --concrete-gray: #f8f9fa;
+  --border-neutral: #d1d5db;
+  --professional-blue: #1a73e8;
+  --text-primary: rgba(0,0,0,0.95);
+  --text-secondary: rgba(0,0,0,0.85);
+  --text-disabled: rgba(0,0,0,0.7);
+  --steel-blue: #1a73e8;
+  --equipment-yellow: #f9ab00;
+  --warning-red: #d93025;
+  --success-green: #137333;
+  --industrial-silver: #5f6368;
+  --card-bg: #ffffff;
+  --input-bg: #ffffff;
+  --input-border: #d1d5db;
+  --post-composer-bg: #ffffff;
+  --post-composer-border: #d1d5db;
+  --post-composer-text: rgba(0,0,0,0.95);
+  --post-composer-placeholder: rgba(0,0,0,0.6);
+  --sidebar-bg: #f1f3f4;
+  --sidebar-text: rgba(0,0,0,0.9);
+  --sidebar-text-secondary: rgba(0,0,0,0.75);
+  --sidebar-text-disabled: rgba(0,0,0,0.6);
+  --dropdown-bg: #ffffff;
+  --dropdown-text: rgba(0,0,0,0.9);
+  --dropdown-text-secondary: rgba(0,0,0,0.7);
+}
+
+html, body, #root {
+  height: 100%;
+  background-color: var(--carbon-black);
+  color: var(--text-primary);
+  font-family: 'Roboto', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Roboto Condensed', 'Roboto', ui-sans-serif, system-ui;
+}
+
+code, pre, kbd, samp {
+  font-family: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+/* Custom utilities for post content */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  line-clamp: 3;
+  overflow: hidden;
+}
