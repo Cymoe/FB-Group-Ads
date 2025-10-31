@@ -59,7 +59,7 @@ export class GoogleAuthService {
       window.google.accounts.oauth2.initCodeClient({
         client_id: googleAuthConfig.clientId,
         scope: googleAuthConfig.scopes.join(' '),
-        redirect_uri: 'http://localhost:5173',
+        redirect_uri: window.location.origin,
         callback: (response: any) => {
           if (response.code) {
             // Exchange code for token
@@ -74,7 +74,7 @@ export class GoogleAuthService {
     })
   }
 
-  private async exchangeCodeForToken(code: string): Promise<GoogleUser> {
+  private async exchangeCodeForToken(code: string): Promise<AuthResult> {
     try {
       // Send code to your backend to exchange for token
       const response = await fetch('http://localhost:3001/api/auth/google', {

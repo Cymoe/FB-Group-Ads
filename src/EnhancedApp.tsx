@@ -12,7 +12,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { RecentPostsPanel } from './components/RecentPostsPanel'
 import { Dashboard } from './pages/Dashboard'
 import { calculateGroupHealth } from './utils/groupHealth'
-import type { Company, Group, Post, Lead, PostType } from './types/database'
+import type { Company, Group, Post, Lead } from './types/database'
 
 // App Context
 const AppContext = createContext<{
@@ -555,21 +555,6 @@ const postTypeIcons = {
   community_intro: '👋',
     feature_friday: '🎉'
 }
-
-const postTypeInfo = {
-    value_post: { engagement: 85, description: 'Helpful tips and value' },
-    warning_post: { engagement: 92, description: 'Important alerts' },
-    diy_guide: { engagement: 78, description: 'Simple DIY tips' },
-    behind_scenes: { engagement: 88, description: 'Show authenticity' },
-    cost_saver: { engagement: 95, description: 'Money-saving tips' },
-    local_alert: { engagement: 90, description: 'Location-specific info' },
-    personal_story: { engagement: 82, description: 'Share experiences' },
-    special_offer: { engagement: 98, description: 'Limited promotions' },
-    quick_tip: { engagement: 75, description: 'Brief, actionable advice' },
-    myth_buster: { engagement: 87, description: 'Debunk misconceptions' },
-    community_intro: { engagement: 80, description: 'Introduce yourself' },
-    feature_friday: { engagement: 89, description: 'Weekly highlights' }
-  }
 
   // Calculate workflow metrics
   
@@ -1655,7 +1640,7 @@ const EditGroupModal = ({ group, onSave, onCancel }: {
 
 
 // Sidebar Component
-const Sidebar = ({ onAddGroup, onEditGroup }: { 
+const Sidebar = ({ onAddGroup, onEditGroup: _onEditGroup }: { 
   onAddGroup: () => void, 
   onEditGroup: (group: Group) => void
 }) => {
@@ -1690,21 +1675,9 @@ const Sidebar = ({ onAddGroup, onEditGroup }: {
       const health = calculateGroupHealth(group)
       return health.status === healthFilter
     })
-  
-  // Get smart recommendations - groups that are safe to post to
-  const safeGroups = filteredGroups
-    .map(group => ({ group, health: calculateGroupHealth(group) }))
-    .filter(({ health }) => health.status === 'safe')
-    .sort((a, b) => {
-      // Sort by days since last post (descending) - groups posted to longest ago first
-      const aDays = a.health.daysSinceLastPost || 999
-      const bDays = b.health.daysSinceLastPost || 999
-      return bDays - aDays
-    })
-    .slice(0, 5)
 
   return (
-    <aside className="w-80 border-r flex flex-col overflow-hidden fixed left-0 top-[65px] bottom-0 z-10" style={{ backgroundColor: 'var(--sidebar-bg)', borderColor: 'var(--border-neutral)' }}>
+    <aside className="w-80 border-r flex flex-col overflow-hidden fixed left-0 top-16 bottom-0 z-10" style={{ backgroundColor: 'var(--sidebar-bg)', borderColor: 'var(--border-neutral)', overscrollBehavior: 'contain' }}>
       {/* Groups Header */}
       <div className="px-3 pt-4 pb-2 border-b flex items-center justify-between flex-shrink-0" style={{ borderColor: 'var(--concrete-gray)' }}>
         <h3 className="text-[11px] font-medium uppercase tracking-[0.5px]" style={{ color: 'var(--sidebar-text)' }}>
@@ -1734,7 +1707,7 @@ const Sidebar = ({ onAddGroup, onEditGroup }: {
         </div>
       </div>
 
-      {/* Health Status Filter */}
+      {/* Health Status Filter - Simple compact version */}
       <div className="px-3 py-2 border-b flex-shrink-0" style={{ borderColor: 'var(--concrete-gray)' }}>
         <div className="flex gap-1">
           <button
@@ -1793,7 +1766,7 @@ const Sidebar = ({ onAddGroup, onEditGroup }: {
       </div>
             
       {/* Groups List */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden" style={{ overscrollBehavior: 'contain' }}>
         {filteredGroups.length === 0 ? (
           <div className="px-3 py-12 text-center">
             <div className="w-12 h-12 bg-[#336699]/10 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -1877,11 +1850,37 @@ const Sidebar = ({ onAddGroup, onEditGroup }: {
                   {group.name}
                 </div>
                   
-                  {/* Category and Tier Row */}
+                  {/* Location & Privacy Row */}
+                  <div className="flex items-center gap-2 text-xs mb-1">
+                    {(group.target_city || group.target_state) && (
+                      <div className="flex items-center gap-1" style={{ color: 'var(--sidebar-text-secondary)' }}>
+                        <span>📍</span>
+                        <span>{group.target_city}{group.target_city && group.target_state ? ', ' : ''}{group.target_state}</span>
+                      </div>
+                    )}
+                    {group.privacy && (
+                      <span className={`
+                        px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide
+                        ${group.privacy === 'public' ? 'bg-green-500/20 text-green-400' :
+                          group.privacy === 'private' ? 'bg-orange-500/20 text-orange-400' :
+                          'bg-red-500/20 text-red-400'
+                        }
+                      `}>
+                        {group.privacy === 'public' ? '🌐 Public' :
+                         group.privacy === 'private' ? '🔒 Private' :
+                         '🔐 Closed'}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Quality Rating & Tier Row */}
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <div style={{ color: 'var(--sidebar-text-secondary)' }}>
-                      {group.category || 'No category'}
-                    </div>
+                    {group.quality_rating && (
+                      <div className="flex items-center gap-1" style={{ color: '#EAB308' }}>
+                        <span>{'⭐'.repeat(Math.min(Math.round(group.quality_rating / 2), 5))}</span>
+                        <span className="text-[10px]">{group.quality_rating}/10</span>
+                      </div>
+                    )}
                     
                     {group.tier && (
                       <span className={`
@@ -1898,8 +1897,8 @@ const Sidebar = ({ onAddGroup, onEditGroup }: {
                     )}
                   </div>
                   
-                  {/* Audience Size and Posts Row */}
-                  <div className="flex items-center justify-between text-xs">
+                  {/* Audience Size, Posts & QA Status Row */}
+                  <div className="flex items-center justify-between text-xs mb-1">
                     <div style={{ color: 'var(--sidebar-text-secondary)' }}>
                       {group.audience_size ? `${group.audience_size.toLocaleString()} members` : 'No size data'}
                     </div>
@@ -1908,6 +1907,23 @@ const Sidebar = ({ onAddGroup, onEditGroup }: {
                   {groupPosts.length} posts
                     </div>
                 </div>
+                
+                  {/* QA Status Badge */}
+                  {group.qa_status && group.qa_status !== 'approved' && (
+                    <div className="mt-1">
+                      <span className={`
+                        inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide
+                        ${group.qa_status === 'new' ? 'bg-blue-500/20 text-blue-400' :
+                          group.qa_status === 'pending_approval' ? 'bg-yellow-500/20 text-yellow-400' :
+                          'bg-red-500/20 text-red-400'
+                        }
+                      `}>
+                        {group.qa_status === 'new' ? '🆕 New' :
+                         group.qa_status === 'pending_approval' ? '⏳ Pending' :
+                         '❌ Rejected'}
+                      </span>
+                    </div>
+                  )}
                 
                   {/* Company Name */}
                 {company && (
@@ -1991,9 +2007,9 @@ const TopNavigation = ({ onAddCompany }: { onAddCompany: () => void }) => {
 
   return (
     <div 
-      className="sticky top-0 z-40 border-b backdrop-blur-sm" 
+      className="fixed top-0 left-0 right-0 z-50 border-b" 
       style={{ 
-        backgroundColor: isDarkMode ? 'rgba(18, 18, 18, 0.95)' : 'rgba(255, 255, 255, 0.95)', 
+        backgroundColor: isDarkMode ? '#121212' : '#ffffff', 
         borderColor: 'var(--border-neutral)',
         boxShadow: isDarkMode 
           ? '0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2)'
@@ -2177,7 +2193,12 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
     company_id: '',
     category: '',
     tier: 'medium',
-    audience_size: 0
+    audience_size: 0,
+    privacy: 'public',
+    target_city: '',
+    target_state: '',
+    quality_rating: 5,
+    qa_status: 'new'
   })
 
   const { selectedCompanyId } = useApp()
@@ -2190,7 +2211,12 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
         company_id: editingGroup.company_id || '',
         category: editingGroup.category || '',
         tier: editingGroup.tier || 'medium',
-        audience_size: editingGroup.audience_size || 0
+        audience_size: editingGroup.audience_size || 0,
+        privacy: editingGroup.privacy || 'public',
+        target_city: editingGroup.target_city || '',
+        target_state: editingGroup.target_state || '',
+        quality_rating: editingGroup.quality_rating || 5,
+        qa_status: editingGroup.qa_status || 'new'
       })
       } else {
       setFormData({
@@ -2199,7 +2225,12 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
         company_id: selectedCompanyId || '',
         category: '',
         tier: 'medium',
-        audience_size: 0
+        audience_size: 0,
+        privacy: 'public',
+        target_city: '',
+        target_state: '',
+        quality_rating: 5,
+        qa_status: 'new'
       })
     }
   }, [editingGroup, selectedCompanyId])
@@ -2358,6 +2389,93 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
             />
           </div>
 
+          {/* Privacy */}
+          <div>
+            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Privacy</label>
+            <select
+              value={formData.privacy}
+              onChange={(e) => setFormData(prev => ({ ...prev, privacy: e.target.value }))}
+              className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
+              style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+            >
+              <option value="public">Public</option>
+              <option value="private">Private</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+
+          {/* Location Fields - 2 columns */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Target City */}
+            <div>
+              <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Target City</label>
+              <input
+                type="text"
+                value={formData.target_city}
+                onChange={(e) => setFormData(prev => ({ ...prev, target_city: e.target.value }))}
+                placeholder="e.g. Phoenix"
+                className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
+                style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+              />
+            </div>
+
+            {/* Target State */}
+            <div>
+              <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Target State</label>
+              <input
+                type="text"
+                value={formData.target_state}
+                onChange={(e) => setFormData(prev => ({ ...prev, target_state: e.target.value }))}
+                placeholder="e.g. AZ"
+                maxLength={2}
+                className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all uppercase"
+                style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+              />
+            </div>
+          </div>
+
+          {/* Quality Rating */}
+          <div>
+            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
+              Quality Rating ({formData.quality_rating}/10)
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={formData.quality_rating}
+                onChange={(e) => setFormData(prev => ({ ...prev, quality_rating: parseInt(e.target.value) }))}
+                className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
+                style={{ 
+                  background: `linear-gradient(to right, #EAB308 0%, #EAB308 ${(formData.quality_rating - 1) * 11.11}%, var(--input-bg) ${(formData.quality_rating - 1) * 11.11}%, var(--input-bg) 100%)`
+                }}
+              />
+              <div className="text-lg font-bold" style={{ color: '#EAB308', minWidth: '40px', textAlign: 'center' }}>
+                {'⭐'.repeat(Math.min(formData.quality_rating, 10))}
+              </div>
+            </div>
+            <p className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>
+              Rate based on engagement, lead quality, and group responsiveness
+            </p>
+          </div>
+
+          {/* QA Status */}
+          <div>
+            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>QA Status</label>
+            <select
+              value={formData.qa_status}
+              onChange={(e) => setFormData(prev => ({ ...prev, qa_status: e.target.value }))}
+              className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
+              style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+            >
+              <option value="new">New - Just Added</option>
+              <option value="pending_approval">Pending Approval - Waiting to Join</option>
+              <option value="approved">Approved - Ready to Post</option>
+              <option value="rejected">Rejected - Can't Post Here</option>
+            </select>
+          </div>
+
           {/* Tier Display */}
           <div>
             <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Tier (Auto-assigned)</label>
@@ -2483,6 +2601,9 @@ const Layout = ({
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--carbon-black)' }}>
       {/* Top Navigation - Always full width on all pages */}
       <TopNavigation onAddCompany={handleAddCompany} />
+      
+      {/* Spacer for fixed navbar */}
+      <div className="h-16"></div>
       
       <div className="flex flex-1">
         {/* Sidebar - Only show on Posts page */}

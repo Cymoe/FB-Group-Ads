@@ -44,7 +44,7 @@ export async function insertDocument(collectionName: string, document: any) {
 export async function updateDocument(collectionName: string, id: string, updates: any) {
   const collection = await getCollection(collectionName)
   const result = await collection.updateOne(
-    { _id: id },
+    { _id: id } as any,
     { $set: { ...updates, updated_at: new Date().toISOString() } }
   )
   return result
@@ -52,6 +52,6 @@ export async function updateDocument(collectionName: string, id: string, updates
 
 export async function deleteDocument(collectionName: string, id: string) {
   const collection = await getCollection(collectionName)
-  const result = await collection.deleteOne({ _id: id })
+  const result = await collection.deleteOne({ _id: id } as any)
   return result
 }

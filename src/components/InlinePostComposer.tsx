@@ -20,21 +20,6 @@ interface InlinePostComposerProps {
   isRecentPostsCollapsed?: boolean
 }
 
-const postTypes = [
-  { value: 'value_post', label: 'Value Post', icon: '💡', description: 'Helpful tips and value' },
-  { value: 'cost_saver', label: 'Cost Saver', icon: '💰', description: 'Money-saving tips' },
-  { value: 'quick_tip', label: 'Quick Tip', icon: '⚡', description: 'Brief, actionable advice' },
-  { value: 'warning_post', label: 'Warning', icon: '⚠️', description: 'Important alerts' },
-  { value: 'local_alert', label: 'Local Alert', icon: '🚨', description: 'Location-specific info' },
-  { value: 'myth_buster', label: 'Myth Buster', icon: '🔍', description: 'Debunk misconceptions' },
-  { value: 'diy_guide', label: 'DIY Guide', icon: '🔧', description: 'Simple DIY tips' },
-  { value: 'personal_story', label: 'Personal Story', icon: '👤', description: 'Share experiences' },
-  { value: 'community_intro', label: 'Community Intro', icon: '👋', description: 'Introduce yourself' },
-  { value: 'behind_scenes', label: 'Behind Scenes', icon: '🎬', description: 'Show authenticity' },
-  { value: 'special_offer', label: 'Special Offer', icon: '🎁', description: 'Limited promotions' },
-  { value: 'feature_friday', label: 'Feature Friday', icon: '🎉', description: 'Weekly highlights' }
-]
-
 export default function InlinePostComposer({ 
   companies, 
   groups, 
@@ -44,14 +29,12 @@ export default function InlinePostComposer({
   onPostCreated,
   onPostUpdated,
   onCancelEdit,
-  isDarkMode = true,
-  isRecentPostsCollapsed = false
+  isDarkMode = true
 }: InlinePostComposerProps) {
   const composerRef = useRef<HTMLDivElement>(null)
   const [isExpanded, setIsExpanded] = useState(false)
   const [content, setContent] = useState('')
   const [selectedPostType, setSelectedPostType] = useState('value_post')
-  const [showPostTypeSelector, setShowPostTypeSelector] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [showDuplicateModal, setShowDuplicateModal] = useState(false)
@@ -72,6 +55,7 @@ export default function InlinePostComposer({
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null)
   const [aiContentGenerated, setAiContentGenerated] = useState(false) // Track if AI generated content
   const [customInstructions, setCustomInstructions] = useState('') // Custom instructions for AI generation
+  const [postMetadata, setPostMetadata] = useState<{industry?: string, goal?: string, template?: string, prompt?: string} | null>(null)
   
   const isEditMode = !!editingPost
 
@@ -167,14 +151,20 @@ export default function InlinePostComposer({
       // Simulate AI generation delay
       await new Promise(resolve => setTimeout(resolve, 2000))
       
-      // Placeholder content (you'll replace this with actual AI response)
-      let placeholderContent = `${template.icon} Generated: ${template.name}\n\n[Your AI-generated content will appear here when you connect OpenAI, Grok, or Claude]\n\nIndustry: ${industry.name}\nGoal: ${goal.name}\nTemplate: ${template.name}`
+      // Store metadata separately (not in content)
+      setPostMetadata({
+        industry: `${industry.name} - ${serviceType.name}`,
+        goal: goal.name,
+        template: `${template.icon} ${template.name}`,
+        prompt: finalPrompt
+      })
+      
+      // Clean placeholder content - just the actual content, no metadata
+      let placeholderContent = `[Your AI-generated content will appear here when you connect OpenAI, Grok, or Claude]`
       
       if (customInstructions.trim()) {
-        placeholderContent += `\nCustom Instructions: ${customInstructions}`
+        placeholderContent += `\n\n📝 Custom Instructions:\n${customInstructions}`
       }
-      
-      placeholderContent += `\n\nPrompt used:\n"${finalPrompt}"`
       
       setContent(placeholderContent)
       
@@ -182,8 +172,9 @@ export default function InlinePostComposer({
       const autoPostType = getPostTypeFromAIGoal(goalId, templateId)
       setSelectedPostType(autoPostType)
       
-      toast.success(`✨ Post generated! Edit as needed.`)
+      toast.success(`✨ Post generated! Review in preview mode.`)
       setAiContentGenerated(true) // Mark that AI content was generated
+      setShowPreview(true) // Show in preview mode first so user can review
       
     } catch (error) {
       console.error('AI generation error:', error)
@@ -209,7 +200,12 @@ export default function InlinePostComposer({
   useEffect(() => {
     if (editingPost) {
       setIsExpanded(true)
-      setContent(editingPost.content || '')
+      
+      // Clean up old "Generated:" lines from content
+      let cleanContent = editingPost.content || ''
+      cleanContent = cleanContent.replace(/^[^\n]*Generated:[^\n]*\n\n?/i, '') // Remove "Generated: ..." line at start
+      
+      setContent(cleanContent)
       setSelectedPostType(editingPost.post_type)
       
       // Scroll to composer
@@ -322,6 +318,7 @@ export default function InlinePostComposer({
         setContent('')
         setIsExpanded(false)
         setAiContentGenerated(false)
+        setPostMetadata(null) // Clear metadata
         
         if (onCancelEdit) onCancelEdit()
       } else {
@@ -352,6 +349,7 @@ export default function InlinePostComposer({
         setContent('')
         setIsExpanded(false)
         setAiContentGenerated(false)
+        setPostMetadata(null) // Clear metadata
       }
       
     } catch (error) {
@@ -365,6 +363,7 @@ export default function InlinePostComposer({
     setContent('')
     setIsExpanded(false)
     setAiContentGenerated(false) // Reset AI flag when cancelling
+    setPostMetadata(null) // Clear metadata
     if (isEditMode && onCancelEdit) {
       onCancelEdit()
     }
@@ -372,7 +371,6 @@ export default function InlinePostComposer({
 
 
   const selectedCompany = companies?.find(c => c.id === selectedCompanyId)
-  const selectedPostTypeInfo = postTypes.find(p => p.value === selectedPostType)
 
   if (!selectedCompanyId) {
     return (
@@ -456,12 +454,12 @@ export default function InlinePostComposer({
             </div>
                 </div>
 
-          {/* Split Layout: AI on Left, Form on Right */}
-          <div className="flex gap-6">
+          {/* Split Layout: Full-width AI wizard OR side-by-side editing */}
+          <div>
 
-              {/* LEFT COLUMN: AI Generation Section (Only when no AI content generated) */}
-              {!isEditMode && !aiContentGenerated && (
-                <div className="w-80 flex-shrink-0">
+              {/* AI Generation Section (Full width when active) */}
+              {!isEditMode && !aiContentGenerated && !content && (
+                <div className="max-w-4xl mx-auto">
                   <div className="rounded-lg p-4 border-2 border-dashed transition-all h-full" style={{ 
                     backgroundColor: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%)',
                     borderColor: 'rgba(59, 130, 246, 0.3)'
@@ -540,12 +538,12 @@ export default function InlinePostComposer({
                               {(aiTemplateStructure as any)[selectedIndustry].icon} {(aiTemplateStructure as any)[selectedIndustry].name}
                             </span>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 max-h-[500px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+                          <div className="grid grid-cols-3 gap-3 max-h-[500px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
                             {Object.entries((aiTemplateStructure as any)[selectedIndustry].serviceTypes || {}).map(([key, serviceType]: [string, any]) => (
                               <button
                                 key={key}
                                 onClick={() => setSelectedServiceType(key)}
-                                className="p-3 rounded-lg text-left transition-all hover:scale-[1.01] hover:border-blue-500"
+                                className="p-4 rounded-lg text-left transition-all hover:scale-[1.02] hover:border-blue-500"
                                 style={{ 
                                   backgroundColor: 'var(--input-bg)',
                                   border: '1px solid var(--border-neutral)'
@@ -586,12 +584,12 @@ export default function InlinePostComposer({
                               {(aiTemplateStructure as any)[selectedIndustry].name} → {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].name}
                             </span>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+                          <div className="grid grid-cols-3 gap-3 max-h-[400px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
                             {Object.entries((aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals).map(([key, goal]: [string, any]) => (
                               <button
                                 key={key}
                                 onClick={() => setSelectedGoal(key)}
-                                className="p-3 rounded-lg text-left transition-all hover:scale-[1.02] hover:border-blue-500"
+                                className="p-4 rounded-lg text-left transition-all hover:scale-[1.02] hover:border-blue-500"
                                 style={{ 
                                   backgroundColor: 'var(--input-bg)',
                                   border: '1px solid var(--border-neutral)'
@@ -641,52 +639,57 @@ export default function InlinePostComposer({
                             </span>
                           </div>
 
-                          {/* Loading State - Show at top when generating */}
-                          {isGeneratingAI ? (
-                            <div className="flex items-center justify-center gap-3 p-6 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
-                              <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
-                              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                          {/* Custom Instructions Field */}
+                          <div className="mb-3 p-3 rounded-lg" style={{ 
+                            backgroundColor: 'var(--input-bg)',
+                            border: '1px solid var(--border-neutral)'
+                          }}>
+                            <label className="block mb-2">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                                  📝 Custom Instructions (Optional)
+                                </span>
+                              </div>
+                              <textarea
+                                value={customInstructions}
+                                onChange={(e) => setCustomInstructions(e.target.value)}
+                                placeholder="e.g., Mention our 20 years in business, focus on summer services, include our 24/7 availability..."
+                                rows={3}
+                                className="w-full px-3 py-2 text-xs rounded resize-none"
+                                style={{
+                                  backgroundColor: 'var(--carbon-black)',
+                                  border: '1px solid var(--border-neutral)',
+                                  color: 'var(--text-primary)'
+                                }}
+                                disabled={isGeneratingAI}
+                              />
+                            </label>
+                            <p className="text-[10px] leading-tight" style={{ color: 'var(--text-disabled)' }}>
+                              Add specific details like years in business, seasonal focus, special offers, or service areas
+                            </p>
+                          </div>
+
+                          {/* Loading Indicator - Transparent Banner */}
+                          {isGeneratingAI && (
+                            <div className="mb-3 p-3 rounded-lg flex items-center justify-center gap-3" style={{ 
+                              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                              border: '1px solid rgba(59, 130, 246, 0.3)'
+                            }}>
+                              <div className="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                              <span className="text-sm font-medium" style={{ color: '#3B82F6' }}>
                                 Generating your post...
                               </span>
                             </div>
-                          ) : (
-                            <>
-                              {/* Custom Instructions Field */}
-                              <div className="mb-3 p-3 rounded-lg" style={{ 
-                                backgroundColor: 'var(--input-bg)',
-                                border: '1px solid var(--border-neutral)'
-                              }}>
-                                <label className="block mb-2">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
-                                      📝 Custom Instructions (Optional)
-                                    </span>
-                                  </div>
-                                  <textarea
-                                    value={customInstructions}
-                                    onChange={(e) => setCustomInstructions(e.target.value)}
-                                    placeholder="e.g., Mention our 20 years in business, focus on summer services, include our 24/7 availability..."
-                                    rows={3}
-                                    className="w-full px-3 py-2 text-xs rounded resize-none"
-                                    style={{
-                                      backgroundColor: 'var(--carbon-black)',
-                                      border: '1px solid var(--border-neutral)',
-                                      color: 'var(--text-primary)'
-                                    }}
-                                  />
-                                </label>
-                                <p className="text-[10px] leading-tight" style={{ color: 'var(--text-disabled)' }}>
-                                  Add specific details like years in business, seasonal focus, special offers, or service areas
-                                </p>
-                              </div>
+                          )}
 
-                          <div className="space-y-2 max-h-64 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+                          {/* Template List */}
+                          <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
                             {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[selectedGoal].templates.map((template: any) => (
                               <button
                                 key={template.id}
                                 onClick={() => generatePostContent(template.id, selectedIndustry!, selectedServiceType!, selectedGoal!)}
                                 disabled={isGeneratingAI}
-                                className="w-full p-3 rounded-lg text-left transition-all hover:scale-[1.01] hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="p-4 rounded-lg text-left transition-all hover:scale-[1.02] hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                 style={{ 
                                   backgroundColor: 'var(--input-bg)',
                                   border: '1px solid var(--border-neutral)'
@@ -704,8 +707,6 @@ export default function InlinePostComposer({
                               </button>
                             ))}
                           </div>
-                            </>
-                          )}
                         </>
                       )}
                     </div>
@@ -713,145 +714,139 @@ export default function InlinePostComposer({
                 </div>
               )}
 
-              {/* RIGHT COLUMN: Post Creation Form (Always Flex) */}
-              <div className="flex-1 space-y-4">
+              {/* Content Editor (shown after AI generation or when manually editing) */}
+              {(isEditMode || aiContentGenerated || content) && (
+              <div className="space-y-4">
 
-                {/* Back to Templates Button (Show after AI generates content) */}
-                {!isEditMode && aiContentGenerated && (
+          {/* Side-by-Side Layout: Metadata + Content */}
+          <div className={`${postMetadata ? 'flex gap-4' : ''}`}>
+            {/* LEFT: Metadata Sidebar (30%) */}
+            {postMetadata && (
+              <div className="flex-[3] space-y-3">
+                <div 
+                  className="p-3 rounded space-y-3 sticky top-4"
+                  style={{ 
+                    backgroundColor: 'var(--input-bg)',
+                    border: '1px solid var(--border-neutral)'
+                  }}
+                >
+                  <div className="flex items-center gap-2 pb-2" style={{ borderBottom: '1px solid var(--border-neutral)' }}>
+                    <span>📊</span>
+                    <span className="text-xs font-medium uppercase tracking-[0.5px]" style={{ color: 'var(--text-primary)' }}>Post Details</span>
+                  </div>
+                  
+                  <div className="space-y-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    <div>
+                      <div className="font-medium mb-0.5" style={{ color: 'var(--text-primary)' }}>Industry</div>
+                      <div>{postMetadata.industry}</div>
+                    </div>
+                    
+                    <div>
+                      <div className="font-medium mb-0.5" style={{ color: 'var(--text-primary)' }}>Goal</div>
+                      <div>{postMetadata.goal}</div>
+                    </div>
+                    
+                    <div>
+                      <div className="font-medium mb-0.5" style={{ color: 'var(--text-primary)' }}>Template</div>
+                      <div>{postMetadata.template}</div>
+                    </div>
+                    
+                    <div className="pt-2" style={{ borderTop: '1px solid var(--border-neutral)' }}>
+                      <div className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Prompt Used</div>
+                      <div className="text-[11px] opacity-70 leading-relaxed">{postMetadata.prompt}</div>
+                    </div>
+                  </div>
+
+                  {/* Regenerate Button */}
                   <button
-                    onClick={() => { setContent(''); openAIPrompts(); }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02]"
+                    onClick={() => { setContent(''); setPostMetadata(null); setShowPreview(false); openAIPrompts(); }}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded text-xs font-medium transition-all hover:scale-[1.02]"
                     style={{ 
                       backgroundColor: 'rgba(59, 130, 246, 0.1)',
                       border: '1px solid rgba(59, 130, 246, 0.3)',
                       color: '#3B82F6'
                     }}
                   >
-                    <span>←</span>
-                    <span>Back to Templates</span>
+                    <span>🔄</span>
+                    <span>Regenerate</span>
                   </button>
-                )}
-
-                {/* Enhanced Post Type Selector - Only show in edit mode */}
-                {isEditMode && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.5px]" style={{ color: 'var(--text-primary)' }}>Post Type</span>
-                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Choose the best format for your content</span>
                 </div>
+              </div>
+            )}
             
-            <div className="relative">
-              <button
-                onClick={() => setShowPostTypeSelector(!showPostTypeSelector)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded text-sm transition-colors"
-                style={{
-                  backgroundColor: 'var(--input-bg)',
-                  border: '1px solid var(--input-border)',
-                  color: 'var(--text-primary)'
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{selectedPostTypeInfo?.icon}</span>
-                  <div className="text-left">
-                    <div className="font-medium">{selectedPostTypeInfo?.label}</div>
-                    <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>{selectedPostTypeInfo?.description}</div>
-                  </div>
-                </div>
-                <span style={{ color: 'var(--text-secondary)' }}>▼</span>
-              </button>
-
-              {/* Enhanced Post Type Dropdown */}
-              {showPostTypeSelector && (
-                        <div className="absolute top-full left-0 right-0 mt-1 rounded shadow-2xl z-50 max-h-80 overflow-y-auto backdrop-blur-sm" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}>
-                  <div className="p-2">
-                    {postTypes.map(type => (
-                      <button
-                        key={type.value}
-                        onClick={() => {
-                          setSelectedPostType(type.value)
-                          setShowPostTypeSelector(false)
-                        }}
-                        className="w-full p-3 rounded text-left transition-colors hover:bg-white/5"
-                        style={{
-                          backgroundColor: selectedPostType === type.value ? '#336699' : 'transparent',
-                          color: selectedPostType === type.value ? 'white' : 'var(--text-primary)'
-                        }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg">{type.icon}</span>
-                          <div className="flex-1">
-                            <div className="font-medium text-sm">{type.label}</div>
-                            <div className="text-xs mt-0.5" style={{ color: selectedPostType === type.value ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)' }}>{type.description}</div>
-                          </div>
-                          {selectedPostType === type.value && (
-                            <span className="text-xs">✓</span>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+            {/* RIGHT: Content Input (70%) */}
+            <div className={`space-y-2 ${postMetadata ? 'flex-[7]' : 'flex-1'}`}>
+              <div className="flex items-center justify-between">
+                {postMetadata?.template && (
+                  <span className="text-sm font-medium px-2 py-1 rounded" style={{ 
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+                    color: '#3B82F6',
+                    border: '1px solid rgba(59, 130, 246, 0.3)'
+                  }}>
+                    {postMetadata.template}
+                  </span>
                 )}
-
-          {/* Enhanced Content Input */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-medium uppercase tracking-[0.5px]" style={{ color: 'var(--text-primary)' }}>Content</label>
-              <div className="flex items-center gap-2">
-                <span className="text-xs" style={{ color: content.length > 2000 ? '#dc2626' : content.length > 1500 ? '#f59e0b' : 'var(--text-secondary)' }}>
-                  {content.length}/2000
-                </span>
-                <button
-                  onClick={() => setShowPreview(!showPreview)}
-                  className="text-xs px-2 py-1 rounded transition-colors"
+                <div className={`flex items-center gap-2 ${!postMetadata?.template ? 'ml-auto' : ''}`}>
+                  <span className="text-xs" style={{ color: content.length > 2000 ? '#dc2626' : content.length > 1500 ? '#f59e0b' : 'var(--text-secondary)' }}>
+                    {content.length}/2000
+                  </span>
+                  <button
+                    onClick={() => setShowPreview(!showPreview)}
+                    className="text-xs px-2 py-1 rounded transition-colors"
+                    style={{ 
+                      backgroundColor: 'var(--input-bg)', 
+                      border: '1px solid var(--border-neutral)', 
+                      color: 'var(--text-secondary)' 
+                    }}
+                  >
+                    {showPreview ? 'Edit' : 'Preview'}
+                  </button>
+                </div>
+              </div>
+              
+              {showPreview ? (
+                <div 
+                  className="rounded p-4 min-h-[300px]" 
                   style={{ 
-                    backgroundColor: 'var(--input-bg)', 
-                    border: '1px solid var(--border-neutral)', 
-                    color: 'var(--text-secondary)' 
+                    backgroundColor: isDarkMode ? '#1E1E1E' : '#F9FAFB', 
+                    border: isDarkMode ? '1px solid var(--border-neutral)' : '1px solid #E5E7EB' 
                   }}
                 >
-                  {showPreview ? 'Edit' : 'Preview'}
-                </button>
-              </div>
+                  <div className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{content || 'No content to preview...'}</div>
+                </div>
+              ) : (
+                <textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Write your post content here..."
+                  className="w-full min-h-[300px] px-3 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#336699]/40 transition-all resize-none"
+                  style={{
+                    backgroundColor: 'var(--input-bg)',
+                    border: content.length > 2000 ? '1px solid #dc2626' : content.length > 1500 ? '1px solid #f59e0b' : '1px solid var(--input-border)',
+                    color: 'var(--text-primary)'
+                  }}
+                />
+              )}
             </div>
-            
-            {showPreview ? (
-                    <div 
-                      className="rounded p-4" 
-                      style={{ 
-                        backgroundColor: isDarkMode ? '#1E1E1E' : '#F9FAFB', 
-                        border: isDarkMode ? '1px solid var(--border-neutral)' : '1px solid #E5E7EB' 
-                      }}
-                    >
-                <div className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>Preview:</div>
-                <div className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{content || 'No content to preview...'}</div>
-              </div>
-            ) : (
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Write your post content here..."
-                className="w-full min-h-[120px] px-3 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#336699]/40 transition-all resize-none"
-                style={{
-                  backgroundColor: 'var(--input-bg)',
-                  border: content.length > 2000 ? '1px solid #dc2626' : content.length > 1500 ? '1px solid #f59e0b' : '1px solid var(--input-border)',
-                  color: 'var(--text-primary)'
-                }}
-              />
-            )}
           </div>
 
           {/* Posting To - Simple info showing current group */}
             <div>
                   {selectedGroupId ? (
               <div className="flex items-center gap-2 px-4 py-3 rounded" style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--input-border)' }}>
-                <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                <span className="text-xs font-medium flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>
                   Posting to:
                 </span>
-                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                <span 
+                  className="text-sm font-medium flex-1" 
+                  style={{ 
+                    color: 'var(--text-primary)',
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word',
+                    overflow: 'visible'
+                  }}
+                  title={groups.find(g => g.id === selectedGroupId)?.name || 'Unknown Group'}
+                >
                   {groups.find(g => g.id === selectedGroupId)?.name || 'Unknown Group'}
                 </span>
               </div>
@@ -866,10 +861,11 @@ export default function InlinePostComposer({
           )}
                 </div>
               </div>
-              {/* End RIGHT COLUMN */}
+              )}
+              {/* End Content Editor */}
 
             </div>
-            {/* End Split Layout */}
+            {/* End Layout */}
 
           {/* Action Buttons */}
           <div className="flex items-center justify-between pt-4 mt-6" style={{ borderTop: '1px solid var(--border-neutral)' }}>
@@ -925,10 +921,14 @@ export default function InlinePostComposer({
         const allSelected = selectedGroupIds.length === safeGroups.length && safeGroups.length > 0
         
         return (
-        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div 
-            className="rounded-lg w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
-            style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}
+            className="rounded-lg w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl"
+            style={{ 
+              backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff',
+              border: '1px solid var(--border-neutral)',
+              opacity: 1
+            }}
           >
             {/* Header */}
             <div className="p-6 border-b" style={{ borderColor: 'var(--border-neutral)' }}>
@@ -990,32 +990,31 @@ export default function InlinePostComposer({
               )}
 
             {/* Groups List - Scrollable */}
-              <div className="flex-1 overflow-hidden px-6">
+              <div className="flex-1 overflow-y-auto px-6 py-2">
                 <List
-                  defaultHeight={400}
+                  defaultHeight={500}
                   rowCount={availableGroups.length}
-                  rowHeight={180}
+                  rowHeight={85}
                   rowProps={{}}
                   rowComponent={({ index, style }) => {
                     const group = availableGroups[index]
                     const health = calculateGroupHealth(group)
                     const isAtRisk = health.status === 'danger'
-                    const isCaution = health.status === 'caution'
                     const isSelected = selectedGroupIds.includes(group.id)
                     const isBlocked = isAtRisk // Block at-risk groups
                     
                     return (
-                      <div style={style} className="px-0 py-1">
+                      <div style={style} className="px-0 pb-2">
                         <label
                         key={group.id}
-                          className={`p-4 rounded-lg transition-all relative ${isBlocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-white/5'}`}
+                          className={`p-2.5 rounded-lg transition-all relative ${isBlocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-white/5'}`}
                         style={{ 
                           backgroundColor: 'var(--input-bg)',
-                            border: `2px dotted ${isSelected ? health.color : (isAtRisk ? '#EF4444' : isCaution ? '#D97706' : 'var(--border-neutral)')}`,
+                            border: `2px solid ${isSelected ? health.color : 'var(--border-neutral)'}`,
                             display: 'block'
                           }}
                         >
-                        <div className="flex items-start gap-4">
+                        <div className="flex items-start gap-3">
                           {/* Checkbox */}
                           <input
                             type="checkbox"
@@ -1046,22 +1045,10 @@ export default function InlinePostComposer({
                               )}
                             </div>
                             
-                            <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
+                            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                               {health.postsThisWeek}/3 posts this week
                               {health.daysSinceLastPost !== null && ` · Last posted ${health.daysSinceLastPost} days ago`}
-                              {isBlocked && <span className="text-red-500 font-medium"> · Cannot duplicate here</span>}
                             </p>
-                            
-                            {(isAtRisk || isCaution) && (
-                              <div className="flex items-start gap-2 mt-2 p-2 rounded text-xs" style={{ 
-                                border: `1px dotted ${health.color}`,
-                                backgroundColor: `${health.color}08`,
-                                color: health.color
-                              }}>
-                                <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
-                                <span>{health.message}</span>
-                              </div>
-                            )}
                           </div>
                         </div>
                         </label>

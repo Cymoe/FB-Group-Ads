@@ -15,6 +15,9 @@
   --text-primary: rgba(255,255,255,0.9);
   --text-secondary: rgba(255,255,255,0.6);
   --text-disabled: rgba(255,255,255,0.38);
+  --card-bg: #1a1a1a;
+  --input-bg: #242424;
+  --input-border: #555555;
 }
 
 /* Light mode variables */

@@ -97,7 +97,7 @@ export const RecentPostsPanel: React.FC<RecentPostsPanelProps> = ({
     
     // Select the post's group so the post will be visible
     console.log('🖱️ Selecting group:', post.group_id)
-    onSelectGroup(post.group_id)
+    onSelectGroup(post.group_id!)
     
     // Find the tab button and click it
     const tabButtons = document.querySelectorAll('[data-tab]')
@@ -148,11 +148,14 @@ export const RecentPostsPanel: React.FC<RecentPostsPanelProps> = ({
     }
     
     // Get all posts sorted by most recent and enrich with group names
+    // Filter out posts without a group_id
     let recent = filteredPosts
+      .filter(post => post.group_id) // Only include posts with a group_id
       .map(post => {
         const group = groups.find(g => g.id === post.group_id)
         return {
           ...post,
+          group_id: post.group_id!, // TypeScript knows it's defined now
           group_name: group?.name || 'Unknown Group'
         }
       })
@@ -177,7 +180,7 @@ export const RecentPostsPanel: React.FC<RecentPostsPanelProps> = ({
       {isCollapsed && (
         <div 
           onClick={toggleCollapse}
-          className="fixed right-0 top-[65px] bottom-0 w-12 flex flex-col items-center justify-center cursor-pointer z-10 transition-all hover:bg-white/5"
+          className="fixed right-0 top-16 bottom-0 w-12 flex flex-col items-center justify-center cursor-pointer z-10 transition-all hover:bg-white/5"
           style={{ backgroundColor: 'var(--card-bg)', borderLeft: '1px solid var(--border-neutral)' }}
         >
           <div className="flex flex-col items-center gap-2 select-none">
@@ -196,10 +199,10 @@ export const RecentPostsPanel: React.FC<RecentPostsPanelProps> = ({
 
       {/* Expanded Panel */}
       <div 
-        className={`flex flex-col fixed right-0 top-[65px] bottom-0 z-10 transition-all duration-300 ease-in-out ${
+        className={`flex flex-col fixed right-0 top-16 bottom-0 z-10 transition-all duration-300 ease-in-out ${
           isCollapsed ? 'w-0 opacity-0 pointer-events-none translate-x-full' : 'w-80 opacity-100'
         }`}
-        style={{ backgroundColor: 'var(--card-bg)', borderLeft: '1px solid var(--border-neutral)' }}
+        style={{ backgroundColor: 'var(--card-bg)', borderLeft: '1px solid var(--border-neutral)', overscrollBehavior: 'contain' }}
       >
         {/* Header */}
         <div className="p-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border-neutral)' }}>

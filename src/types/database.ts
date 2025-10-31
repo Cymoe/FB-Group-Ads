@@ -28,6 +28,9 @@ export type Company = {
   updated_at: string
 }
 
+export type GroupPrivacy = 'public' | 'private' | 'closed'
+export type GroupQAStatus = 'new' | 'pending_approval' | 'approved' | 'rejected'
+
 export type Group = {
   id: string
   name: string
@@ -36,6 +39,14 @@ export type Group = {
   category?: string
   audience_size?: number
   status: GroupStatus
+  
+  // NEW: Enhanced group tracking fields
+  privacy?: GroupPrivacy  // Group privacy setting
+  target_city?: string  // Geographic targeting - city/town
+  target_state?: string  // Geographic targeting - state
+  quality_rating?: number  // 1-10 star rating for group quality
+  qa_status?: GroupQAStatus  // Approval workflow status
+  
   user_id: string  // Add user context
   created_at: string
   updated_at: string
