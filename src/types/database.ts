@@ -12,7 +12,7 @@ export type PostType =
   | 'behind_scenes'
   | 'special_offer'
 
-export type PostStatus = 'draft' | 'ready_to_post' | 'pending_approval' | 'posted'
+export type PostStatus = 'draft' | 'ready_to_post' | 'pending_approval' | 'posted' | 'leads_collected'
 
 export type GroupTier = 'high' | 'medium' | 'low'
 export type GroupStatus = 'active' | 'inactive' | 'pending'

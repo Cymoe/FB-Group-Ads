@@ -11,7 +11,10 @@ interface User {
 interface AuthContextType {
   user: User | null
   loading: boolean
+  login: (email: string, password: string) => Promise<void>
   loginWithGoogle: () => Promise<void>
+  loginWithFacebook: () => Promise<void>
+  register: (email: string, password: string, name: string) => Promise<void>
   logout: () => Promise<void>
   isAuthenticated: boolean
 }
@@ -69,6 +72,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuth()
   }, [])
 
+  const login = async (email: string, password: string) => {
+    try {
+      setLoading(true)
+      const response = await fetch('http://localhost:3001/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Login failed')
+      }
+
+      const data = await response.json()
+      setUser(data.user)
+      localStorage.setItem('token', data.token)
+    } catch (error) {
+      console.error('Login failed:', error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const loginWithGoogle = async () => {
     try {
       setLoading(true)
@@ -79,6 +108,45 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('token', token)
     } catch (error) {
       console.error('Google login failed:', error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loginWithFacebook = async () => {
+    try {
+      setLoading(true)
+      // TODO: Implement Facebook login
+      throw new Error('Facebook login not yet implemented')
+    } catch (error) {
+      console.error('Facebook login failed:', error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const register = async (email: string, password: string, name: string) => {
+    try {
+      setLoading(true)
+      const response = await fetch('http://localhost:3001/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password, name }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Registration failed')
+      }
+
+      const data = await response.json()
+      setUser(data.user)
+      localStorage.setItem('token', data.token)
+    } catch (error) {
+      console.error('Registration failed:', error)
       throw error
     } finally {
       setLoading(false)
@@ -103,7 +171,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value: AuthContextType = {
     user,
     loading,
+    login,
     loginWithGoogle,
+    loginWithFacebook,
+    register,
     logout,
     isAuthenticated: !!user
   }
