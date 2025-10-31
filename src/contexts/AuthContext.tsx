@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { GoogleAuthService } from '../services/googleAuth'
+import { API_ENDPOINTS } from '../config/api'
 
 interface User {
   id: string
@@ -45,7 +46,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (token) {
           // Verify token with server and get user info
           try {
-            const response = await fetch('http://localhost:3001/api/auth/verify', {
+            const response = await fetch(API_ENDPOINTS.AUTH.VERIFY, {
               headers: {
                 'Authorization': `Bearer ${token}`
               }
@@ -75,7 +76,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (email: string, password: string) => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -130,7 +131,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (email: string, password: string, name: string) => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:3001/api/auth/register', {
+      const response = await fetch(API_ENDPOINTS.AUTH.REGISTER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

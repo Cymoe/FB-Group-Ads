@@ -13,6 +13,7 @@ import { RecentPostsPanel } from './components/RecentPostsPanel'
 import { Dashboard } from './pages/Dashboard'
 import { calculateGroupHealth } from './utils/groupHealth'
 import type { Company, Group, Post, Lead } from './types/database'
+import { API_BASE_URL } from './config/api'
 
 // App Context
 const AppContext = createContext<{
@@ -122,7 +123,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
         
         try {
           // Fetch companies
-          const companiesResponse = await fetch('http://localhost:3001/api/companies', { headers })
+          const companiesResponse = await fetch(`${API_BASE_URL}/api/companies`, { headers })
           const companiesData = await companiesResponse.json()
           console.log('✅ Successfully loaded companies from MongoDB:', Array.isArray(companiesData) ? companiesData.length : 'not an array')
           if (isMounted) {
@@ -137,13 +138,13 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
           }
 
       // Fetch groups
-          const groupsResponse = await fetch('http://localhost:3001/api/groups', { headers })
+          const groupsResponse = await fetch(`${API_BASE_URL}/api/groups`, { headers })
           const groupsData = await groupsResponse.json()
           console.log('✅ Successfully loaded groups from MongoDB:', Array.isArray(groupsData) ? groupsData.length : 'not an array')
           if (isMounted) setGroups(Array.isArray(groupsData) ? groupsData : [])
 
           // Fetch posts
-          const postsResponse = await fetch('http://localhost:3001/api/posts', { headers })
+          const postsResponse = await fetch(`${API_BASE_URL}/api/posts`, { headers })
           const postsData = await postsResponse.json()
           console.log('✅ Successfully loaded posts from MongoDB:', Array.isArray(postsData) ? postsData.length : 'not an array')
           if (isMounted) setPosts(Array.isArray(postsData) ? postsData : [])
@@ -185,7 +186,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const addPost = async (post: Omit<Post, 'id' | 'created_at' | 'company' | 'group'>, showToast = true) => {
     try {
       // Save to MongoDB via API
-      const response = await fetch('http://localhost:3001/api/posts', {
+      const response = await fetch(`${API_BASE_URL}/api/posts`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(post)
@@ -216,7 +217,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const updatePost = async (id: string, updates: Partial<Post>) => {
     try {
       // Save to MongoDB via API
-      const response = await fetch(`http://localhost:3001/api/posts/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/posts/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(updates)
@@ -240,7 +241,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
           // Small delay to ensure server has finished updating
           await new Promise(resolve => setTimeout(resolve, 500))
           
-          const groupsResponse = await fetch('http://localhost:3001/api/groups', {
+          const groupsResponse = await fetch(`${API_BASE_URL}/api/groups`, {
             headers: getAuthHeaders()
           })
           if (groupsResponse.ok) {
@@ -260,7 +261,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const addGroup = async (group: Omit<Group, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       // Save to MongoDB via API
-      const response = await fetch('http://localhost:3001/api/groups', {
+      const response = await fetch(`${API_BASE_URL}/api/groups`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(group)
@@ -282,7 +283,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const updateGroup = async (id: string, updates: Partial<Group>) => {
     try {
       // Save to MongoDB via API
-      const response = await fetch(`http://localhost:3001/api/groups/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/groups/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(updates)
@@ -304,7 +305,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const deleteGroup = async (id: string) => {
     try {
       // Delete from MongoDB via API
-      const response = await fetch(`http://localhost:3001/api/groups/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/groups/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       })
@@ -324,7 +325,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const addCompany = async (company: Omit<Company, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
     try {
       // Save to MongoDB via API
-      const response = await fetch('http://localhost:3001/api/companies', {
+      const response = await fetch(`${API_BASE_URL}/api/companies`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(company)
@@ -346,7 +347,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const updateCompany = async (id: string, updates: Partial<Company>) => {
     try {
       // Save to MongoDB via API
-      const response = await fetch(`http://localhost:3001/api/companies/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/companies/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(updates)
@@ -368,7 +369,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const deleteCompany = async (id: string) => {
     try {
       // Delete from MongoDB via API
-      const response = await fetch(`http://localhost:3001/api/companies/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/companies/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       })
@@ -388,7 +389,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const deletePost = async (id: string) => {
     try {
       // Delete from MongoDB via API
-      const response = await fetch(`http://localhost:3001/api/posts/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/posts/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       })

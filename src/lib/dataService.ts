@@ -1,6 +1,7 @@
 import type { Company, Group, Post, Lead } from '../types/database'
+import { API_BASE_URL } from '../config/api'
 
-const API_BASE = 'http://localhost:3001/api'
+const API_BASE = `${API_BASE_URL}/api`
 
 // Companies
 export async function getCompanies(): Promise<Company[]> {

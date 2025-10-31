@@ -5,6 +5,7 @@ import { List } from 'react-window'
 import type { Company, Group, Post } from '../types/database'
 import { calculateGroupHealth } from '../utils/groupHealth'
 import { aiTemplateStructure } from './aiTemplates'
+import { API_BASE_URL } from '../config/api'
 
 interface InlinePostComposerProps {
   companies: Company[]
@@ -263,7 +264,7 @@ export default function InlinePostComposer({
     try {
       for (const post of recentBulkPosts) {
         try {
-          const response = await fetch(`http://localhost:3001/api/posts/${post.id}`, {
+          const response = await fetch(`${API_BASE_URL}/api/posts/${post.id}`, {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('auth_token')}`

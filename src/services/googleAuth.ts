@@ -1,4 +1,5 @@
 import { googleAuthConfig } from '../config/googleAuth'
+import { API_ENDPOINTS } from '../config/api'
 
 interface GoogleUser {
   id: string
@@ -77,7 +78,7 @@ export class GoogleAuthService {
   private async exchangeCodeForToken(code: string): Promise<AuthResult> {
     try {
       // Send code to your backend to exchange for token
-      const response = await fetch('http://localhost:3001/api/auth/google', {
+      const response = await fetch(API_ENDPOINTS.AUTH.GOOGLE, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
