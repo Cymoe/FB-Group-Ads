@@ -100,9 +100,6 @@ export default function PostBoard({ posts, onStatusChange }: PostBoardProps) {
                         <div className="flex items-center gap-1 text-[11px] text-white/60">
                           <Users2 size={12} className="text-[var(--steel-blue)]" />
                           <span>{post.group.name}</span>
-                          {post.group.tier && (
-                            <span className="text-white/40">• {post.group.tier}</span>
-                          )}
                         </div>
                       )}
                       {post.posted_at && (

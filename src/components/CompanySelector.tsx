@@ -185,7 +185,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({
       {/* Dropdown Menu - Sleek minimal design */}
       {isOpen && (
         <div 
-          className="absolute top-full left-0 right-0 mt-2 rounded shadow-2xl z-50 max-h-80 overflow-hidden" 
+          className="absolute top-full left-0 right-0 mt-2 rounded shadow-2xl z-[110] max-h-80 overflow-hidden" 
           style={{ 
             backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
             border: isDarkMode ? '1px solid #333333' : '1px solid #E5E7EB',

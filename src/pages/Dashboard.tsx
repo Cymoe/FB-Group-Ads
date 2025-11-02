@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { TrendingUp, AlertCircle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { TrendingUp, AlertCircle, CheckCircle, ChevronDown, ChevronUp, Copy, BarChart3 } from 'lucide-react'
 import { calculateGroupHealth, getHealthSummary } from '../utils/groupHealth'
+import { getPerformanceInsights, getPerformanceTier } from '../utils/postAnalytics'
 import type { Group, Post } from '../types/database'
 
 // Helper function to get reason for caution/risk status
@@ -49,14 +50,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ groups, posts, selectedCom
     ? posts.filter(p => p.company_id === selectedCompanyId)
     : posts
   
-  // Calculate health summary
-  const healthSummary = getHealthSummary(companyGroups)
+  // Helper function to calculate real-time group health based on actual posted posts
+  const getGroupHealthWithRealData = (group: Group) => {
+    const groupPosts = companyPosts.filter(p => p.group_id === group.id)
+    const oneWeekAgo = new Date()
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+    
+    const postedPosts = groupPosts.filter(p => p.status === 'posted')
+    const postsThisWeek = postedPosts.filter(p => {
+      const postDate = new Date(p.created_at || p.posted_at || Date.now())
+      return postDate >= oneWeekAgo
+    }).length
+    
+    const lastPostedPost = postedPosts.length > 0
+      ? postedPosts.reduce((latest, post) => {
+          const postDate = new Date(post.posted_at || post.created_at || 0)
+          const latestDate = new Date(latest.posted_at || latest.created_at || 0)
+          return postDate > latestDate ? post : latest
+        })
+      : null
+    
+    const groupWithUpdatedData = {
+      ...group,
+      posts_this_week: postsThisWeek,
+      last_post_date: lastPostedPost ? (lastPostedPost.posted_at || lastPostedPost.created_at) : undefined
+    }
+    
+    return calculateGroupHealth(groupWithUpdatedData)
+  }
   
   // Get groups with health status
   const groupsWithHealth = companyGroups.map(group => ({ 
     group, 
-    health: calculateGroupHealth(group) 
+    health: getGroupHealthWithRealData(group) 
   }))
+  
+  // Calculate health summary based on real-time data
+  const healthSummary = {
+    safe: groupsWithHealth.filter(g => g.health.status === 'safe').length,
+    caution: groupsWithHealth.filter(g => g.health.status === 'caution').length,
+    danger: groupsWithHealth.filter(g => g.health.status === 'danger').length,
+  }
   
   // Filter groups based on selected tab
   const filteredGroups = selectedFilter === 'all' 
@@ -72,7 +106,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ groups, posts, selectedCom
   
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--carbon-black)' }}>
-      <div className="px-6 py-6">
+      <div className="px-3 md:px-6 py-4 md:py-6">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-6">
@@ -157,33 +191,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ groups, posts, selectedCom
                 Need to rest
               </p>
             </button>
-          </div>
-
-          {/* Quick Stats Row */}
-          <div className="mb-6 p-4 rounded-lg flex items-center justify-between" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">📝</span>
-                <div>
-                  <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{companyPosts.filter(p => p.status === 'draft').length}</div>
-                  <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Drafts</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">✅</span>
-                <div>
-                  <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{companyPosts.filter(p => p.status === 'ready_to_post').length}</div>
-                  <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Ready</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">🚀</span>
-                <div>
-                  <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{companyPosts.filter(p => p.status === 'posted').length}</div>
-                  <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Posted</div>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Caution/Risk Details - Only show when there are groups to show */}
@@ -317,6 +324,193 @@ export const Dashboard: React.FC<DashboardProps> = ({ groups, posts, selectedCom
               </div>
             )}
           </div>
+
+          {/* Top Performers Section */}
+          {(() => {
+            const insights = getPerformanceInsights(companyPosts)
+            
+            if (insights.totalPosts === 0) {
+              return null // Don't show if no posts with analytics yet
+            }
+
+            return (
+              <div className="mt-6 p-6 rounded-lg" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                      <BarChart3 size={20} className="text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        🔥 What's Working
+                      </h2>
+                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        Your top performing posts
+                      </p>
+                    </div>
+                  </div>
+                  {insights.averageScore > 0 && (
+                    <div className="text-right">
+                      <div className="text-2xl font-bold" style={{ color: '#3B82F6' }}>
+                        {insights.averageScore}
+                      </div>
+                      <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        Avg Score
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Insights */}
+                {insights.bestPostType && (
+                  <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">💡</span>
+                      <div>
+                        <h3 className="font-medium text-sm mb-1" style={{ color: '#3B82F6' }}>
+                          Performance Insight
+                        </h3>
+                        <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                          Your <span className="font-semibold">{insights.bestPostType.replace('_', ' ')}</span> posts perform best on average
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                          Based on {insights.totalPosts} posted {insights.totalPosts === 1 ? 'post' : 'posts'} with analytics
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Top Posts Grid */}
+                {insights.bestPerformingPosts.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
+                      Top {insights.bestPerformingPosts.length} Posts
+                    </h3>
+                    
+                    {insights.bestPerformingPosts.map((post, index) => {
+                      const group = groups.find(g => g.id === post.group_id)
+                      const tier = getPerformanceTier(post.analytics?.performance_score || 0)
+                      
+                      return (
+                        <div
+                          key={post.id}
+                          className="p-4 rounded-lg border transition-all hover:border-purple-500/50"
+                          style={{ 
+                            backgroundColor: 'var(--input-bg)',
+                            border: '1px solid var(--border-neutral)'
+                          }}
+                        >
+                          {/* Header with rank and score */}
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div 
+                                className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
+                                style={{ 
+                                  backgroundColor: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : 'rgba(59, 130, 246, 0.2)',
+                                  color: index < 3 ? '#000' : '#3B82F6'
+                                }}
+                              >
+                                #{index + 1}
+                              </div>
+                              <div>
+                                <div className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                                  {post.post_type.replace('_', ' ')}
+                                </div>
+                                {group && (
+                                  <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                    {group.name}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="px-2 py-1 rounded text-xs font-medium"
+                                style={{ 
+                                  backgroundColor: `${tier.color}20`,
+                                  color: tier.color
+                                }}
+                              >
+                                {tier.icon} {post.analytics?.performance_score || 0}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Content Preview */}
+                          <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
+                            {post.content.substring(0, 120)}
+                            {post.content.length > 120 && '...'}
+                          </p>
+
+                          {/* Metrics */}
+                          {post.analytics && (
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-disabled)' }}>
+                                <span className="flex items-center gap-1">
+                                  <span>❤️</span>
+                                  <span>{post.analytics.reactions}</span>
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <span>💬</span>
+                                  <span>{post.analytics.comments}</span>
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <span>🔄</span>
+                                  <span>{post.analytics.shares}</span>
+                                </span>
+                                {post.analytics.engagement_rate && (
+                                  <span 
+                                    className="ml-2 px-2 py-0.5 rounded font-medium"
+                                    style={{
+                                      backgroundColor: tier.color + '20',
+                                      color: tier.color
+                                    }}
+                                  >
+                                    {post.analytics.engagement_rate.toFixed(1)}%
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <button
+                                onClick={() => {
+                                  // TODO: Implement duplicate functionality
+                                  console.log('Duplicate post:', post.id)
+                                }}
+                                className="px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1"
+                                style={{
+                                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                                  color: '#3B82F6'
+                                }}
+                              >
+                                <Copy size={12} />
+                                Duplicate
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* No data state */}
+                {insights.bestPerformingPosts.length === 0 && (
+                  <div className="text-center py-8">
+                    <div className="text-4xl mb-2">📊</div>
+                    <p className="text-sm mb-2" style={{ color: 'var(--text-primary)' }}>
+                      Start tracking post performance
+                    </p>
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      Add engagement stats to your posted posts to see what's working
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
       </div>
     </div>

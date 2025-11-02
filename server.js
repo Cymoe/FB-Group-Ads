@@ -40,7 +40,6 @@ async function connectToDatabase() {
     await db.collection('groups').createIndex({ name: 1 })
     await db.collection('groups').createIndex({ company_id: 1 })
     await db.collection('groups').createIndex({ category: 1 })
-    await db.collection('groups').createIndex({ tier: 1 })
     await db.collection('groups').createIndex({ status: 1 })
     
     await db.collection('posts').createIndex({ company_id: 1 })
@@ -166,17 +165,17 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body
     
-    // For now, simulate login (in production, verify against database)
+    // For now, simulate login with the actual Google user ID
     if (email && password) {
       const token = jwt.sign(
-        { userId: '1', email, name: 'User' },
+        { userId: '103790072909526511123', email, name: 'User' },
         JWT_SECRET,
         { expiresIn: '24h' }
       )
       
       res.json({ 
         token, 
-        user: { id: '1', email, name: 'User' } 
+        user: { id: '103790072909526511123', email, name: 'User' } 
       })
     } else {
       res.status(400).json({ error: 'Email and password required' })
@@ -191,17 +190,17 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, name } = req.body
     
-    // For now, simulate registration (in production, save to database)
+    // For now, simulate registration with the actual Google user ID
     if (email && password && name) {
       const token = jwt.sign(
-        { userId: '1', email, name },
+        { userId: '103790072909526511123', email, name },
         JWT_SECRET,
         { expiresIn: '24h' }
       )
       
       res.json({ 
         token, 
-        user: { id: '1', email, name } 
+        user: { id: '103790072909526511123', email, name } 
       })
     } else {
       res.status(400).json({ error: 'Email, password, and name required' })
@@ -426,6 +425,50 @@ app.post('/api/groups', authenticateToken, async (req, res) => {
     }
     const result = await db.collection('groups').insertOne(group)
     const newGroup = await db.collection('groups').findOne({ _id: result.insertedId })
+    
+    // Also add to global groups database if it doesn't exist yet
+    const existingGlobalGroup = await db.collection('global_groups').findOne({ name: group.name })
+    
+    if (!existingGlobalGroup) {
+      const newGlobalGroup = {
+        name: group.name,
+        category: group.category || 'General',
+        description: group.description || '',
+        facebook_url: group.facebook_url || '',
+        location: {
+          city: group.location?.city || '',
+          state: group.location?.state || '',
+          country: group.location?.country || 'USA'
+        },
+        member_count: group.member_count || 0,
+        privacy: group.privacy || 'public',
+        quality_score: group.quality_score || 70,
+        verified: false,
+        industries: group.industries || [],
+        tags: group.tags || [],
+        added_by_count: 1, // User just added it
+        trending_score: 0,
+        contributed_by: req.user.userId,
+        contributed_at: new Date().toISOString(),
+        verified_by_admin: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+      
+      await db.collection('global_groups').insertOne(newGlobalGroup)
+      console.log('✅ Created new global group:', group.name)
+    } else {
+      // Increment added_by_count for existing global group
+      await db.collection('global_groups').updateOne(
+        { name: group.name },
+        { 
+          $inc: { added_by_count: 1 },
+          $set: { updated_at: new Date().toISOString() }
+        }
+      )
+      console.log('✅ Incremented added_by_count for existing global group:', group.name)
+    }
+    
     res.json(mapId(newGroup))
   } catch (error) {
     console.error('Error adding group:', error)
@@ -608,32 +651,55 @@ app.put('/api/groups/:id', authenticateToken, async (req, res) => {
     const { db } = await connectToDatabase()
     const { id } = req.params
     
-    // Verify the group belongs to the authenticated user
-    const group = await db.collection('groups').findOne({ 
-      _id: new ObjectId(id),
-      user_id: req.user.userId 
-    })
+    console.log('🔍 Updating group with id:', id)
+    
+    // Try to convert to ObjectId first
+    let query = null
+    let group = null
+    
+    try {
+      const objectId = new ObjectId(id)
+      // Valid ObjectId - search by _id
+      query = { _id: objectId, user_id: req.user.userId }
+      group = await db.collection('groups').findOne(query)
+    } catch (error) {
+      // Not a valid ObjectId - search by custom id field
+      query = { id: id, user_id: req.user.userId }
+      group = await db.collection('groups').findOne(query)
+    }
     
     if (!group) {
+      console.log('❌ Group not found with id:', id)
       return res.status(404).json({ error: 'Group not found or unauthorized' })
     }
     
+    console.log('✅ Found group:', group.name, 'MongoDB _id:', group._id)
+    
+    // Now update using MongoDB's _id (the actual document identifier)
     const updates = {
       ...req.body,
       updated_at: new Date().toISOString(),
     }
+    
+    // Update using the actual MongoDB _id
     const result = await db.collection('groups').updateOne(
-      { _id: new ObjectId(id), user_id: req.user.userId },
+      { _id: group._id, user_id: req.user.userId },
       { $set: updates }
     )
+    
     if (result.matchedCount === 0) {
+      console.log('❌ Update matched 0 documents')
       return res.status(404).json({ error: 'Group not found' })
     }
-    const updatedGroup = await db.collection('groups').findOne({ _id: new ObjectId(id) })
+    
+    console.log('✅ Updated group successfully, matchedCount:', result.matchedCount)
+    
+    // Fetch updated group using MongoDB _id
+    const updatedGroup = await db.collection('groups').findOne({ _id: group._id })
     res.json(mapId(updatedGroup))
   } catch (error) {
-    console.error('Error updating group:', error)
-    res.status(500).json({ error: 'Failed to update group' })
+    console.error('❌ Error updating group:', error)
+    res.status(500).json({ error: 'Failed to update group', details: error.message })
   }
 })
 
@@ -662,9 +728,284 @@ app.delete('/api/groups/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Group not found' })
     }
     
+    // If this group was added from the global database, decrement the added_by_count
+    if (group.global_group_id) {
+      try {
+        await db.collection('global_groups').updateOne(
+          { _id: new ObjectId(group.global_group_id) },
+          { 
+            $inc: { added_by_count: -1 },
+            $set: { updated_at: new Date().toISOString() }
+          }
+        )
+        console.log(`✅ Decremented added_by_count for global group: ${group.name}`)
+      } catch (error) {
+        console.error('⚠️ Failed to decrement global group count:', error)
+        // Don't fail the request if this update fails
+      }
+    }
+    
     res.json({ success: true, message: 'Group deleted successfully' })
   } catch (error) {
     console.error('Error deleting group:', error)
+    res.status(500).json({ error: 'Failed to delete group' })
+  }
+})
+
+// ============================================
+// GLOBAL GROUPS ENDPOINTS
+// ============================================
+
+// Get all global groups (public database)
+app.get('/api/global-groups', authenticateToken, async (req, res) => {
+  try {
+    const { db } = await connectToDatabase()
+    const globalGroups = await db.collection('global_groups').find({}).toArray()
+    res.json(globalGroups.map(mapId))
+  } catch (error) {
+    console.error('Error fetching global groups:', error)
+    res.status(500).json({ error: 'Failed to fetch global groups' })
+  }
+})
+
+// Add group from global database to user's collection
+app.post('/api/global-groups/:id/add', authenticateToken, async (req, res) => {
+  try {
+    const { db } = await connectToDatabase()
+    const { id } = req.params
+    const { company_id } = req.body
+
+    if (!company_id) {
+      return res.status(400).json({ error: 'Company ID is required' })
+    }
+
+    // Verify the company belongs to the user
+    const company = await db.collection('companies').findOne({
+      id: company_id,
+      user_id: req.user.userId
+    })
+
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found or unauthorized' })
+    }
+
+    // Find the global group
+    const globalGroup = await db.collection('global_groups').findOne({ _id: new ObjectId(id) })
+    
+    if (!globalGroup) {
+      return res.status(404).json({ error: 'Global group not found' })
+    }
+
+    // Check if user already has this group
+    const existingGroup = await db.collection('groups').findOne({
+      name: globalGroup.name,
+      company_id: company_id,
+      user_id: req.user.userId
+    })
+
+    if (existingGroup) {
+      return res.status(400).json({ error: 'You already have this group in your collection' })
+    }
+
+    // Create a new group from the global group data
+    const newGroup = {
+      name: globalGroup.name,
+      description: globalGroup.description,
+      company_id: company_id,
+      category: globalGroup.category,
+      audience_size: globalGroup.member_count,
+      status: 'active',
+      privacy: globalGroup.privacy,
+      target_city: globalGroup.location.city,
+      target_state: globalGroup.location.state,
+      quality_rating: Math.round(globalGroup.quality_score / 10), // Convert 0-100 to 1-10
+      qa_status: 'approved',
+      user_id: req.user.userId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      // Track source
+      source: 'global_database',
+      global_group_id: globalGroup._id.toString()
+    }
+
+    const result = await db.collection('groups').insertOne(newGroup)
+    const insertedGroup = await db.collection('groups').findOne({ _id: result.insertedId })
+
+    // Increment the added_by_count in global group
+    await db.collection('global_groups').updateOne(
+      { _id: new ObjectId(id) },
+      { 
+        $inc: { added_by_count: 1 },
+        $set: { updated_at: new Date().toISOString() }
+      }
+    )
+
+    res.json(mapId(insertedGroup))
+  } catch (error) {
+    console.error('Error adding global group:', error)
+    res.status(500).json({ error: 'Failed to add group' })
+  }
+})
+
+// Contribute a new group to the global database
+app.post('/api/global-groups/contribute', authenticateToken, async (req, res) => {
+  try {
+    const { db } = await connectToDatabase()
+    const { name, description, category, location, facebook_url, member_count, privacy, industries, tags } = req.body
+
+    // Validate required fields
+    if (!name || !category || !location || !location.city || !location.state) {
+      return res.status(400).json({ error: 'Missing required fields' })
+    }
+
+    // Check if group already exists
+    const existingGroup = await db.collection('global_groups').findOne({ name })
+    
+    if (existingGroup) {
+      return res.status(400).json({ error: 'This group already exists in the database' })
+    }
+
+    // Create new global group
+    const newGlobalGroup = {
+      name,
+      category,
+      description: description || '',
+      facebook_url: facebook_url || '',
+      location: {
+        city: location.city,
+        state: location.state,
+        country: location.country || 'USA'
+      },
+      member_count: member_count || 0,
+      privacy: privacy || 'public',
+      quality_score: 70, // Default quality score for new contributions
+      verified: false,
+      industries: industries || [],
+      tags: tags || [],
+      added_by_count: 0,
+      trending_score: 0,
+      contributed_by: req.user.userId,
+      contributed_at: new Date().toISOString(),
+      verified_by_admin: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    const result = await db.collection('global_groups').insertOne(newGlobalGroup)
+    const insertedGroup = await db.collection('global_groups').findOne({ _id: result.insertedId })
+
+    res.json(mapId(insertedGroup))
+  } catch (error) {
+    console.error('Error contributing global group:', error)
+    res.status(500).json({ error: 'Failed to contribute group' })
+  }
+})
+
+// Get impact data for a global group (used before deletion)
+app.get('/api/global-groups/:id/impact', authenticateToken, async (req, res) => {
+  try {
+    const { db } = await connectToDatabase()
+    const { id } = req.params
+    
+    // Get the global group
+    const globalGroup = await db.collection('global_groups').findOne({ 
+      _id: new ObjectId(id) 
+    })
+    
+    if (!globalGroup) {
+      return res.status(404).json({ error: 'Group not found' })
+    }
+    
+    // Count how many organizations have added this group
+    const organizationsUsing = await db.collection('groups').countDocuments({
+      name: globalGroup.name
+    })
+    
+    // Count scheduled posts for this group
+    const scheduledPosts = await db.collection('posts').countDocuments({
+      group_name: globalGroup.name,
+      status: 'scheduled'
+    })
+    
+    // Get list of organization names using it
+    const groupsUsingIt = await db.collection('groups').find({
+      name: globalGroup.name
+    }).toArray()
+    
+    const orgIds = [...new Set(groupsUsingIt.map(g => g.company_id))]
+    const organizations = await db.collection('companies').find({
+      id: { $in: orgIds }
+    }).toArray()
+    
+    res.json({
+      organizationsUsing,
+      scheduledPosts,
+      organizations: organizations.map(org => ({ id: org.id, name: org.name })),
+      canDelete: organizationsUsing < 5, // Hybrid approach: only allow if < 5 orgs
+      isContributor: globalGroup.contributed_by === req.user.userId || globalGroup.contributed_by === 'system'
+    })
+  } catch (error) {
+    console.error('Error fetching impact data:', error)
+    res.status(500).json({ error: 'Failed to fetch impact data' })
+  }
+})
+
+// Delete a global group (contributor only, with cascading delete)
+app.delete('/api/global-groups/:id', authenticateToken, async (req, res) => {
+  try {
+    const { db } = await connectToDatabase()
+    const { id } = req.params
+    
+    // Get the global group
+    const globalGroup = await db.collection('global_groups').findOne({ 
+      _id: new ObjectId(id) 
+    })
+    
+    if (!globalGroup) {
+      return res.status(404).json({ error: 'Group not found' })
+    }
+    
+    // Verify ownership (must be contributor or system group)
+    if (globalGroup.contributed_by !== req.user.userId && globalGroup.contributed_by !== 'system') {
+      return res.status(403).json({ 
+        error: 'You can only delete groups you contributed' 
+      })
+    }
+    
+    // Check usage limit (hybrid approach: prevent deletion if heavily used)
+    const organizationsUsing = await db.collection('groups').countDocuments({
+      name: globalGroup.name
+    })
+    
+    if (organizationsUsing >= 5) {
+      return res.status(403).json({ 
+        error: 'This group is used by 5+ organizations and cannot be deleted. Contact support for assistance.' 
+      })
+    }
+    
+    // Perform cascading delete
+    // 1. Delete from global_groups
+    await db.collection('global_groups').deleteOne({ _id: new ObjectId(id) })
+    
+    // 2. Delete from all organizations' groups
+    const groupsDeleted = await db.collection('groups').deleteMany({ 
+      name: globalGroup.name 
+    })
+    
+    // 3. Delete or cancel all posts for this group
+    const postsDeleted = await db.collection('posts').deleteMany({ 
+      group_name: globalGroup.name 
+    })
+    
+    res.json({ 
+      message: 'Group deleted globally',
+      affected: {
+        organizations: groupsDeleted.deletedCount,
+        posts: postsDeleted.deletedCount
+      }
+    })
+  } catch (error) {
+    console.error('Error deleting global group:', error)
     res.status(500).json({ error: 'Failed to delete group' })
   }
 })

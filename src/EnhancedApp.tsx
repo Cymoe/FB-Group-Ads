@@ -11,6 +11,7 @@ import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Dashboard } from './pages/Dashboard'
+import { GroupsPage } from './pages/GroupsPage'
 import type { Company, Group, Post, Lead } from './types/database'
 import { API_BASE_URL } from './config/api'
 
@@ -269,7 +270,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
         const newPost = await response.json()
         setPosts(prev => [...prev, newPost])
         if (showToast) {
-          toast.success('Post created successfully! 🎉')
+          toast.success('Post created successfully!')
         }
         return newPost
       } else {
@@ -304,7 +305,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if (updates.status === 'ready_to_post') {
           toast.success('Post marked as ready! ✅')
         } else if (updates.status === 'posted') {
-          toast.success('Post marked as posted! 🎉')
+          toast.success('Post marked as posted!')
         } else {
           toast.success('Post updated successfully!')
         }
@@ -407,7 +408,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
       if (response.ok) {
         const newCompany = await response.json()
         setCompanies(prev => [...prev, newCompany])
-        toast.success('Company created successfully! 🏢')
+        toast.success('Company created successfully!')
       } else {
         toast.error('Failed to create company. Please try again.')
       }
@@ -429,7 +430,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
       if (response.ok) {
         const updatedCompany = await response.json()
         setCompanies(prev => prev.map(c => c.id === id ? updatedCompany : c))
-        toast.success('Company updated successfully! 🏢')
+        toast.success('Company updated successfully!')
       } else {
         toast.error('Failed to update company. Please try again.')
       }
@@ -652,134 +653,33 @@ const postTypeIcons = {
         <div className={`mx-auto transition-all duration-300 ${
           showComposeDrawer ? 'max-w-4xl' : 'max-w-6xl'
         }`}>
-          {/* Page Header - Only show when a group is selected */}
+          {/* AI Post Generator */}
           {selectedGroupId ? (
             <>
-            <div className="mb-6">
-              {/* Health Status Card with Group Name */}
-              {(() => {
-                const selectedGroup = groups.find(g => g.id === selectedGroupId)
-                if (!selectedGroup) return null
-                const health = getGroupHealthWithRealData(selectedGroup, posts)
-                
-                return (
-                  <div 
-                    className="p-5 rounded-lg mb-4"
-                    style={{ 
-                      backgroundColor: 'var(--card-bg)',
-                      border: `2px dotted ${health.color}`,
-                      borderLeftWidth: '4px',
-                      borderLeftStyle: 'solid'
-                    }}
-                  >
-                    {/* Group Title Header inside card */}
-                    <div className="flex items-center justify-between mb-4 pb-4" style={{ borderBottom: `1px dotted ${health.color}40` }}>
-                <div className="flex items-center gap-3">
-                        {/* Status indicator dot */}
-                        <div 
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: health.color }}
-                        />
-                        <div>
-                  <h1 className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-                          {selectedGroup.name}
-                  </h1>
-                          {/* Company Label */}
-                          {(() => {
-                            const company = companies.find(c => c.id === selectedGroup.company_id)
-                            return company && (
-                              <div className="text-[10px] uppercase tracking-[0.5px] mt-0.5" style={{ color: 'var(--text-disabled)' }}>
-                                {company.name}
-                              </div>
-                            )
-                          })()}
-                        </div>
-              </div>
-                <button
-                  onClick={() => {
-                          setEditingGroup(selectedGroup)
-                      setShowEditGroupModal(true)
-                  }}
-                        className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors hover:bg-white/5"
-                  style={{ 
-                    border: '1px solid var(--border-neutral)',
-                    color: 'var(--text-secondary)'
-                  }}
-                  title="Edit group settings"
-                >
-                  <Settings size={16} />
-                </button>
-          </div>
-          
-                    {/* Content - Left aligned */}
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-base" style={{ color: health.color }}>
-                            {health.status === 'safe' ? 'Safe to Post' : health.status === 'caution' ? 'Proceed with Caution' : 'High Risk'}
-                          </h3>
-          </div>
-          
-                        <p className="text-sm mb-3" style={{ color: 'var(--text-primary)' }}>
-                          {health.recommendationText}
-                        </p>
-                        
-                        {/* Stats Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-              <div>
-                            <div style={{ color: 'var(--text-secondary)' }}>This Week</div>
-                            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                              {health.postsThisWeek}/3 posts
-          </div>
-        </div>
-
-                          {health.daysSinceLastPost !== null && (
-              <div>
-                              <div style={{ color: 'var(--text-secondary)' }}>Last Posted</div>
-                              <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                                {health.daysSinceLastPost} day{health.daysSinceLastPost !== 1 ? 's' : ''} ago
-              </div>
-            </div>
-                          )}
-                          
-                          {health.nextSafePostDate && (
-              <div>
-                              <div style={{ color: 'var(--text-secondary)' }}>Next Safe Date</div>
-                              <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                                {health.nextSafePostDate}
-              </div>
-            </div>
-                          )}
-                          
-                    <div>
-                            <div style={{ color: 'var(--text-secondary)' }}>Recommended</div>
-                            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                              {selectedGroup.recommended_frequency || 3}/week
-                  </div>
-                </div>
-            </div>
-      </div>
-    </div>
-  )
-              })()}
-        </div>
-
-            {/* AI Post Generator - Directly under group info */}
-            <div className="mb-6 max-w-2xl">
+            <div className="mb-6 max-w-2xl pb-8">
             {/* STEP 1: Select Industry - TWO COLUMN LAYOUT */}
             {!selectedIndustry && (
-              <div className="grid grid-cols-2 gap-3">
+              <>
+                <div className="mb-4">
+                  <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                    Select Your Industry
+                  </h2>
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    Choose your business category to generate targeted social media content
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                 {Object.entries(aiTemplateStructure).map(([key, industry]: [string, any]) => (
                   <button
                     key={key}
                     onClick={() => setSelectedIndustry(key)}
                     className="p-4 rounded-lg text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
-                    style={{
+                    style={{ 
                       backgroundColor: 'var(--input-bg)',
                       border: '1px solid var(--border-neutral)'
                     }}
                   >
-                    <div className="text-2xl mb-2">{industry.icon}</div>
-                    <h4 className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                    <h4 className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                       {industry.name}
                     </h4>
                     <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -787,8 +687,9 @@ const postTypeIcons = {
                     </p>
                   </button>
                 ))}
-      </div>
-          )}
+                              </div>
+              </>
+            )}
           
             {/* STEP 2: Select Service Type */}
             {selectedIndustry && !selectedServiceType && (
@@ -797,23 +698,23 @@ const postTypeIcons = {
                   <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                     Select Service Type
                   </h3>
-                    <button
+                <button
                     onClick={() => setSelectedIndustry(null)}
                     className="text-sm px-4 py-2 rounded-lg transition-colors"
-                      style={{
+                  style={{ 
                       backgroundColor: 'transparent',
-                      border: '1px solid var(--border-neutral)',
-                      color: 'var(--text-secondary)'
-                    }}
-                  >
+                    border: '1px solid var(--border-neutral)',
+                    color: 'var(--text-secondary)'
+                  }}
+                >
                     ← Back
-                  </button>
-                </div>
+                </button>
+          </div>
                 <div className="mb-3 p-2 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
                   <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                     {(aiTemplateStructure as any)[selectedIndustry].icon} {(aiTemplateStructure as any)[selectedIndustry].name}
                   </span>
-                </div>
+          </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[600px] overflow-y-auto">
                   {Object.entries((aiTemplateStructure as any)[selectedIndustry].serviceTypes || {}).map(([key, serviceType]: [string, any]) => (
                     <button
@@ -827,13 +728,13 @@ const postTypeIcons = {
                         >
                       <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
                         {serviceType.name}
-              </div>
+          </div>
                       <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                         {serviceType.description}
                       </p>
                     </button>
                   ))}
-                </div>
+        </div>
               </>
             )}
 
@@ -844,10 +745,10 @@ const postTypeIcons = {
                   <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                     Choose Your Goal
                   </h3>
-                  <button
+                    <button
                     onClick={() => setSelectedServiceType(null)}
                     className="text-sm px-4 py-2 rounded-lg transition-colors"
-                    style={{
+                      style={{
                       backgroundColor: 'transparent',
                       border: '1px solid var(--border-neutral)',
                       color: 'var(--text-secondary)'
@@ -867,16 +768,15 @@ const postTypeIcons = {
                       key={key}
                       onClick={() => setSelectedGoal(key)}
                       className="p-4 rounded-lg text-left transition-all hover:border-[#EAB308]"
-                    style={{ 
+                          style={{
                         backgroundColor: 'var(--input-bg)',
                       border: '1px solid var(--border-neutral)'
-                      }}
-                    >
-                      <div className="text-xl mb-2">{goal.icon}</div>
-                      <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                          }}
+                        >
+                      <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
                         {goal.name}
-                      </div>
-                                  </button>
+              </div>
+                    </button>
                   ))}
                 </div>
               </>
@@ -889,21 +789,21 @@ const postTypeIcons = {
                   <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                     Select Template
                   </h3>
-                                      <button
+                                  <button
                     onClick={() => {
                       setSelectedGoal(null)
                       setSelectedTemplateId(null)
                     }}
                     className="text-sm px-4 py-2 rounded-lg transition-colors"
-                                        style={{ 
+                    style={{
                       backgroundColor: 'transparent',
                       border: '1px solid var(--border-neutral)',
                       color: 'var(--text-secondary)'
                     }}
                   >
                     ← Back
-                                      </button>
-                                    </div>
+                                  </button>
+                </div>
                 <div className="mb-3 p-2 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
                   <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                     {(aiTemplateStructure as any)[selectedIndustry].name}
@@ -916,46 +816,60 @@ const postTypeIcons = {
                   <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                     {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[selectedGoal].name}
                   </span>
-                              </div>
+            </div>
 
-                {/* Loading Indicator */}
-                {isGeneratingAI && (
-                  <div className="mb-4 p-4 rounded-lg flex items-center justify-center gap-3" style={{
-                    backgroundColor: 'rgba(234, 179, 8, 0.1)',
-                    border: '1px solid rgba(234, 179, 8, 0.3)'
-                  }}>
-                    <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#EAB308' }} />
-                    <span className="text-sm font-medium" style={{ color: '#EAB308' }}>
-                      Generating your post...
-                                      </span>
-                  </div>
-                )}
-
-                {/* Two-Column Layout: Templates List + Detail Panel */}
-                {!isGeneratingAI && (
-                  <div className="flex flex-col lg:flex-row gap-4">
-                    {/* LEFT: Template List (60%) */}
-                    <div className="flex-1 lg:flex-[6]">
-                      <div className="grid grid-cols-1 gap-2 max-h-[500px] overflow-y-auto">
-                        {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[selectedGoal].templates.map((template: any) => {
-                          const isSelected = selectedTemplateId === template.id
-                                        return (
-                                            <button 
-                              key={template.id}
-                              onMouseEnter={() => setSelectedTemplateId(template.id)}
+                {/* Template Grid */}
+                <div className="grid grid-cols-2 gap-3 pb-8">
+                    {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[selectedGoal].templates.map((template: any) => {
+                      const isProcessing = selectedTemplateId === template.id
+                      return (
+                        <div 
+                          key={template.id}
+                          className="p-4 rounded-lg transition-all hover:shadow-lg"
+                                      style={{ 
+                            backgroundColor: 'var(--input-bg)',
+                            borderWidth: '1px',
+                            borderStyle: 'solid',
+                            borderColor: 'var(--border-neutral)'
+                          }}
+                        >
+                          <div className="mb-3">
+                            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                              {template.name}
+                  </h3>
+                            <p className="text-xs line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
+                              {template.prompt.split('.')[0]}...
+                            </p>
+                          </div>
+                          
+                          <div className="flex gap-2">
+                                  <button
                               onClick={() => {
                                 const company = companies.find(c => c.id === selectedCompanyId)
                                 const companyName = company?.name || 'Your Company'
+                                
+                                setSelectedTemplateId(template.id)
+                                
+                                // Immediately open drawer with loading state
+                                if (setPendingAIContent) {
+                                  setPendingAIContent('') // Empty content triggers loading state
+                                }
+                                if (setPendingCompanyId && selectedCompanyId) {
+                                  setPendingCompanyId(selectedCompanyId)
+                                }
+                                if (setPendingGroupId && selectedGroupId) {
+                                  setPendingGroupId(selectedGroupId)
+                                }
                                 
                                 setIsGeneratingAI(true)
                                 
                                 setTimeout(async () => {
                                   // Mock content - replace with actual AI API call
-                                  const mockContent = `🏠 ${companyName} - Premium Service Alert!
+                                  const mockContent = `${companyName} - Premium Service Alert!
 
 Experience top-quality service that exceeds your expectations.
 
-✨ Why choose us?
+Why choose us?
 • Professional & certified team
 • Fast, reliable service
 • Customer satisfaction guaranteed
@@ -967,103 +881,52 @@ Call us today for a free quote!
                                   if (setPendingAIContent) {
                                     setPendingAIContent(mockContent)
                                   }
-                                  if (setPendingCompanyId && selectedCompanyId) {
-                                    setPendingCompanyId(selectedCompanyId)
-                                  }
-                                  if (setPendingGroupId && selectedGroupId) {
-                                    setPendingGroupId(selectedGroupId)
-                                  }
                                   
-                                  toast.success('✨ Post generated! Opening drawer for customization...')
                                   setIsGeneratingAI(false)
-                                  
-                                  // Clear selections after generation
-                                  setSelectedIndustry(null)
-                                  setSelectedServiceType(null)
-                                  setSelectedGoal(null)
-                                  setSelectedTemplateId(null)
-                                }, 2000)
+                                  setSelectedTemplateId(null) // Only clear the selected template, keep the flow selections
+                                  toast.success('Post generated!')
+                                }, 1500)
                               }}
-                              disabled={isGeneratingAI}
-                              className="p-3 rounded-lg text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed h-20 flex flex-col justify-between"
-                              style={{
-                                backgroundColor: isSelected ? 'rgba(234, 179, 8, 0.1)' : 'var(--input-bg)',
-                                borderWidth: '1px',
-                                borderStyle: 'solid',
-                                borderColor: isSelected ? '#EAB308' : 'var(--border-neutral)',
-                                boxShadow: isSelected ? '0 0 0 1px #EAB308, 0 2px 8px rgba(234, 179, 8, 0.2)' : 'none'
+                              disabled={false}
+                              className="flex-1 h-8 px-3 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+                                        style={{ 
+                                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                                color: isDarkMode ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.7)',
+                                border: 'none'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                if (!isGeneratingAI || !isProcessing) {
+                                  e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.09)'
+                                }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
                               }}
                             >
-                              <div className="flex items-center gap-2">
-                                <span className="text-base">{template.icon}</span>
-                                <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                                  {template.name}
+                              {isProcessing && isGeneratingAI ? (
+                                <span className="flex items-center gap-1.5">
+                                  <span className="inline-block w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin"></span>
+                                  Generating
                                 </span>
-                              </div>
-                              <p className="text-xs line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
-                                {template.prompt.split('.')[0]}...
-                              </p>
-                                          </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* RIGHT: Template Detail Panel (40%) */}
-                    <div className="flex-1 lg:flex-[4]">
-                      {selectedTemplateId ? (
-                        (() => {
-                          const template = (aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[selectedGoal].templates.find((t: any) => t.id === selectedTemplateId)
-                          if (!template) return null
-                          
-                          const company = companies.find(c => c.id === selectedCompanyId)
-                          const companyName = company?.name || 'Your Company'
-                          const samplePrompt = template.prompt.replace('{company}', companyName)
-                          
-                                      return (
-                            <div className="sticky top-0 p-4 rounded-lg" style={{
-                              backgroundColor: 'var(--input-bg)',
-                              border: '2px solid #EAB308'
-                            }}>
-                              {/* Template Header */}
-                              <div className="flex items-start gap-2.5 mb-3 pb-3" style={{ borderBottom: '1px solid var(--border-neutral)' }}>
-                                <span className="text-2xl">{template.icon}</span>
-                                <div className="flex-1">
-                                  <h3 className="text-sm font-bold mb-0.5" style={{ color: 'var(--text-primary)' }}>
-                                    {template.name}
-                                  </h3>
-                                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                                    Click to generate your post
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* Template Preview */}
-                              <div className="mb-3">
-                                <div className="text-xs font-semibold mb-1.5" style={{ color: 'var(--text-primary)' }}>
-                                  Template Preview
-                                </div>
-                                <div className="p-2.5 rounded-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-neutral)' }}>
-                                  <p className="text-xs whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
-                                    {samplePrompt}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* Action Button */}
-                                          <button
-                                onClick={() => {
-                                  const company = companies.find(c => c.id === selectedCompanyId)
-                                  const companyName = company?.name || 'Your Company'
-                                  
-                                  setIsGeneratingAI(true)
-                                  
-                                  setTimeout(async () => {
-                                    const mockContent = `🏠 ${companyName} - Premium Service Alert!
+                              ) : (
+                                'Edit & tweet'
+                              )}
+                                      </button>
+                                      <button
+                              onClick={() => {
+                                const company = companies.find(c => c.id === selectedCompanyId)
+                                const companyName = company?.name || 'Your Company'
+                                
+                                setSelectedTemplateId(template.id)
+                                setIsGeneratingAI(true)
+                                
+                                setTimeout(async () => {
+                                  // Mock content for queue
+                                  const mockContent = `${companyName} - Premium Service Alert!
 
 Experience top-quality service that exceeds your expectations.
 
-✨ Why choose us?
+Why choose us?
 • Professional & certified team
 • Fast, reliable service
 • Customer satisfaction guaranteed
@@ -1071,65 +934,60 @@ Experience top-quality service that exceeds your expectations.
 Call us today for a free quote!
 
 #HomeServices #LocalBusiness #QualityService`
-                                    
-                                    if (setPendingAIContent) {
-                                      setPendingAIContent(mockContent)
-                                    }
-                                    if (setPendingCompanyId && selectedCompanyId) {
-                                      setPendingCompanyId(selectedCompanyId)
-                                    }
-                                    if (setPendingGroupId && selectedGroupId) {
-                                      setPendingGroupId(selectedGroupId)
-                                    }
-                                    
-                                    toast.success('✨ Post generated! Opening drawer for customization...')
-                                    setIsGeneratingAI(false)
-                                    
-                                    // Clear selections after generation
-                                    setSelectedIndustry(null)
-                                    setSelectedServiceType(null)
-                                    setSelectedGoal(null)
-                                    setSelectedTemplateId(null)
-                                  }, 2000)
-                                }}
-                                disabled={isGeneratingAI || !selectedCompanyId || !selectedGroupId}
-                                className="w-full h-10 rounded-lg font-medium text-sm transition-all disabled:opacity-50 hover:opacity-90"
-                                            style={{
-                                  backgroundColor: '#EAB308',
-                                  color: '#000000'
-                                            }}
-                                          >
-                                Generate Post
-                                          </button>
-                            </div>
-                          )
-                        })()
-                      ) : (
-                        <div className="p-4 rounded-lg border-2 border-dashed flex items-center justify-center h-full" style={{
-                          backgroundColor: 'var(--input-bg)',
-                          borderColor: 'var(--border-neutral)'
-                        }}>
-                          <div className="text-center">
-                            <span className="text-3xl mb-2 block">👈</span>
-                            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                              Hover over a template to see details
-                            </p>
+                                  
+                                  // Add to queue logic here
+                                  const newPost = {
+                                    id: Date.now().toString(),
+                                    content: mockContent,
+                                    status: 'scheduled' as const,
+                                    company_id: selectedCompanyId || '',
+                                    group_id: selectedGroupId || '',
+                                    created_at: new Date().toISOString(),
+                                    scheduled_for: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Schedule for tomorrow
+                                  }
+                                  
+                                  if (addPost) {
+                                    addPost(newPost)
+                                  }
+                                  
+                                  toast.success('Post added to queue!')
+                                  setIsGeneratingAI(false)
+                                  setSelectedTemplateId(null) // Only clear the selected template, keep the flow selections
+                                }, 1500)
+                              }}
+                              disabled={false}
+                              className="flex-1 h-8 px-3 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+                              style={{
+                                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                                color: isDarkMode ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.7)',
+                                border: 'none'
+                              }}
+                                        onMouseEnter={(e) => {
+                                if (!isGeneratingAI || !isProcessing) {
+                                  e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.09)'
+                                }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
+                                        }}
+                                      >
+                              Add to Queue
+                                      </button>
+                                    </div>
+                                </div>
+                      )
+                    })}
                               </div>
-                            </div>
-                      )}
-                          </div>
-                        </div>
-                )}
               </>
-            )}
-                      </div>
-            </>
+                                )}
+                              </div>
+          </>
           ) : (
             <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 200px)' }}>
               <div className="text-center max-w-md">
                 <div className="w-16 h-16 bg-[#336699]/20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <MessageSquare size={32} className="text-[#336699]" />
-                  </div>
+                              </div>
                 <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                   Select a Facebook Group
                     </h2>
@@ -1138,9 +996,9 @@ Call us today for a free quote!
               </p>
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}>
                   <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>👈 Start by selecting a group</span>
-                </div>
-            </div>
-      </div>
+                            </div>
+                          </div>
+                        </div>
           )}
           
           {/* Edit Group Modal */}
@@ -1158,10 +1016,10 @@ Call us today for a free quote!
               }}
             />
           )}
-          </div>
-          </div>
-        </div>
-    </div>
+                      </div>
+                  </div>
+                </div>
+            </div>
 
 
     {/* Delete Confirmation Modal */}
@@ -1332,9 +1190,7 @@ const CompaniesPage = () => {
           
           {companies.length === 0 && (
             <div className="text-center py-16">
-              <div className="w-16 h-16 bg-[#336699]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">🏢</span>
-              </div>
+              <div className="w-16 h-16 bg-[#336699]/10 rounded-full mx-auto mb-4"></div>
               <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                 No companies yet
               </h3>
@@ -1400,70 +1256,70 @@ const EditCompanyModal = ({ company, onSave, onCancel }: {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="rounded p-4 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto shadow-2xl" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[11px] font-medium uppercase tracking-[0.5px]" style={{ color: 'var(--text-primary)' }}>Edit Company</h2>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="rounded-lg p-6 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto shadow-xl" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Edit Company</h2>
           <button
             onClick={onCancel}
-            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-white/5"
-            style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-secondary)' }}
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10"
+            style={{ color: 'var(--text-secondary)' }}
           >
-            <X size={14} />
+            <X size={16} />
           </button>
         </div>
               
-            <div className="space-y-3">
+            <div className="space-y-4">
         <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
+            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
               Company Name
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
+              className="w-full h-11 px-4 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#336699]/30 transition-all"
               style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
               placeholder="Enter company name"
             />
         </div>
 
                     <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
+            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
               Service Type
             </label>
             <input
               type="text"
               value={formData.service_type}
               onChange={(e) => setFormData(prev => ({ ...prev, service_type: e.target.value }))}
-              className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
+              className="w-full h-11 px-4 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#336699]/30 transition-all"
               style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
               placeholder="e.g., Plumbing, Painting, HVAC"
             />
         </div>
 
           <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
+            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
               Location
             </label>
             <input
               type="text"
               value={formData.location}
               onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-              className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
+              className="w-full h-11 px-4 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#336699]/30 transition-all"
               style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
               placeholder="e.g., Midland, TX"
             />
                   </div>
 
           <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
+            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
               Description
             </label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full px-3 py-2 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all resize-none"
+              className="w-full px-4 py-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#336699]/30 transition-all resize-none"
               style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
               placeholder="Enter company description"
               rows={3}
@@ -1471,20 +1327,22 @@ const EditCompanyModal = ({ company, onSave, onCancel }: {
                     </div>
                     </div>
 
-        <div className="flex items-center justify-end gap-3 pt-6">
+        <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t" style={{ borderColor: 'var(--border-neutral)' }}>
                   <button
             onClick={onCancel}
-            className="h-10 px-4 rounded text-sm font-medium uppercase tracking-[0.5px] transition-colors hover:bg-white/5"
-            style={{ border: '1px solid var(--border-neutral)', color: 'var(--text-secondary)' }}
+            className="h-10 px-5 rounded-lg text-sm font-medium transition-colors"
+            style={{ color: 'var(--text-secondary)', backgroundColor: 'transparent' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--input-bg)'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             Cancel
                     </button>
               <button
             onClick={handleSave}
             disabled={!formData.name.trim()}
-            className="h-10 px-4 bg-[#336699] text-white rounded text-sm font-medium uppercase tracking-[0.5px] hover:bg-[#336699]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-10 px-5 bg-[#336699] text-white rounded-lg text-sm font-medium hover:bg-[#336699]/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-            Save Changes
+            Save
                   </button>
       </div>
               </div>
@@ -1511,70 +1369,70 @@ const AddCompanyModal = ({ onSave, onCancel }: {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="rounded p-4 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto shadow-2xl" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[11px] font-medium uppercase tracking-[0.5px]" style={{ color: 'var(--text-primary)' }}>Add Company</h2>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="rounded-lg p-6 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto shadow-xl" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Add Company</h2>
           <button
             onClick={onCancel}
-            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-white/5"
-            style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-secondary)' }}
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10"
+            style={{ color: 'var(--text-secondary)' }}
           >
-            <X size={14} />
+            <X size={16} />
           </button>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
+            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
               Company Name
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
+              className="w-full h-11 px-4 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#336699]/30 transition-all"
               style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
               placeholder="Enter company name"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
+            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
               Service Type
             </label>
             <input
               type="text"
               value={formData.service_type}
               onChange={(e) => setFormData(prev => ({ ...prev, service_type: e.target.value }))}
-              className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
+              className="w-full h-11 px-4 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#336699]/30 transition-all"
               style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
               placeholder="e.g., Plumbing, Painting, HVAC"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
+            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
               Location
             </label>
             <input
               type="text"
               value={formData.location}
               onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-              className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
+              className="w-full h-11 px-4 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#336699]/30 transition-all"
               style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
               placeholder="e.g., Midland, TX"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
+            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
               Description
             </label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full px-3 py-2 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all resize-none"
+              className="w-full px-4 py-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#336699]/30 transition-all resize-none"
               style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
               placeholder="Enter company description"
               rows={3}
@@ -1582,18 +1440,20 @@ const AddCompanyModal = ({ onSave, onCancel }: {
           </div>
                     </div>
 
-        <div className="flex items-center justify-end gap-3 pt-6">
+        <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t" style={{ borderColor: 'var(--border-neutral)' }}>
             <button
               onClick={onCancel}
-            className="h-10 px-4 rounded text-sm font-medium uppercase tracking-[0.5px] transition-colors hover:bg-white/5"
-            style={{ border: '1px solid var(--border-neutral)', color: 'var(--text-secondary)' }}
+            className="h-10 px-5 rounded-lg text-sm font-medium transition-colors"
+            style={{ color: 'var(--text-secondary)', backgroundColor: 'transparent' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--input-bg)'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               Cancel
             </button>
             <button
             onClick={handleSave}
               disabled={!formData.name.trim()}
-            className="h-10 px-4 bg-[#336699] text-white rounded text-sm font-medium uppercase tracking-[0.5px] hover:bg-[#336699]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-10 px-5 bg-[#336699] text-white rounded-lg text-sm font-medium hover:bg-[#336699]/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Add Company
             </button>
@@ -2329,11 +2189,20 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
   const [isClosing, setIsClosing] = useState(false)
   const [showPostMenu, setShowPostMenu] = useState<string | null>(null)
   const [postToDelete, setPostToDelete] = useState<Post | null>(null)
+  const [isGenerating, setIsGenerating] = useState(initialContent === '')
   
   // Update content when initialContent changes
   useEffect(() => {
-    if (initialContent) {
-      setContent(initialContent)
+    if (initialContent !== undefined) {
+      if (initialContent === '') {
+        // Empty string means generation is starting
+        setIsGenerating(true)
+        setContent('')
+      } else {
+        // Content received, generation complete
+        setIsGenerating(false)
+        setContent(initialContent)
+      }
     }
     if (initialCompanyId) {
       setCompanyId(initialCompanyId)
@@ -2495,31 +2364,49 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
                       <option key={group.id} value={group.id}>{group.name}</option>
                     ))}
                 </select>
-              </div>
+            </div>
 
-              {/* Textarea */}
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Write here.&#10;&#10;&#10;Skip 3 lines to start a thread."
-                className="w-full h-48 p-3 rounded-lg resize-none text-sm placeholder:opacity-40"
-                      style={{ 
+              {/* Textarea or Loading State */}
+              {isGenerating ? (
+                <div className="w-full h-48 p-3 rounded-lg flex items-center justify-center" style={{ 
                   backgroundColor: isDarkMode ? '#2A2A2A' : '#F9FAFB', 
-                  border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`,
-                        color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
-                      }}
-                maxLength={280}
-              />
+                  border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`
+                }}>
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ 
+                      borderColor: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
+                      borderTopColor: '#EAB308'
+                    }} />
+                    <span className="text-sm font-medium" style={{ color: '#EAB308' }}>
+                      Generating your post...
+                    </span>
+          </div>
+                </div>
+              ) : (
+                <textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Write here.&#10;&#10;&#10;Skip 3 lines to start a thread."
+                  className="w-full h-48 p-3 rounded-lg resize-none text-sm placeholder:opacity-40"
+                  style={{ 
+                    backgroundColor: isDarkMode ? '#2A2A2A' : '#F9FAFB', 
+                    border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`,
+                    color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
+                  }}
+                  maxLength={280}
+                />
+              )}
 
               {/* Character Count & Tools */}
-              <div className="flex items-center justify-between mt-2 mb-3">
-                <div 
-                  className="flex items-center gap-2 text-xs"
-                  style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
-                >
-                  <span>{content.length} / 280</span>
-                  <span>saved ✓</span>
-                </div>
+              {!isGenerating && (
+                <div className="flex items-center justify-between mt-2 mb-3">
+                  <div 
+                    className="flex items-center gap-2 text-xs"
+                    style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                  >
+                    <span>{content.length} / 280</span>
+                    <span>saved ✓</span>
+                  </div>
                 <div className="flex items-center gap-1">
                   <button 
                     style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
@@ -2551,16 +2438,18 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
                     className="hover:opacity-90 p-1.5" 
                     title="Schedule"
                   >📅</button>
-            </div>
-          </div>
+                </div>
+              </div>
+              )}
           
               {/* Action Buttons */}
+              {!isGenerating && (
               <div className="space-y-2 mb-3">
                 <div className="flex items-center gap-2">
-                    <button
+              <button
                     onClick={handlePost}
                     className="px-3 py-1.5 rounded text-xs font-medium transition-colors flex-1"
-                    style={{ 
+                style={{ 
                       backgroundColor: isDarkMode ? '#2A2A2A' : '#F9FAFB', 
                       color: isDarkMode ? '#888888' : '#666666', 
                       border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}` 
@@ -2584,13 +2473,16 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
                   <span className="text-[10px] opacity-80">Feb 28th, 11:57 AM</span>
                 </button>
               </div>
+              )}
 
-              <button
-                style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
-                className="text-xs hover:opacity-90 underline mb-3"
-              >
-                Edit queue
-              </button>
+              {!isGenerating && (
+                <button
+                  style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                  className="text-xs hover:opacity-90 underline mb-3"
+                >
+                  Edit queue
+                </button>
+              )}
 
               {/* Advanced Options */}
               <button
@@ -3169,7 +3061,7 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
   onEditGroup: (groupData: any) => void
   editingGroup: any
 }) => {
-  const { companies } = useApp()
+  const { companies, isDarkMode = true } = useApp()
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -3253,28 +3145,37 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="rounded p-4 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto shadow-2xl" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="rounded-md p-4 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto shadow-lg" style={{ 
+        backgroundColor: isDarkMode ? '#1a1a1a' : '#FFFFFF', 
+        border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`
+      }}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[11px] font-medium uppercase tracking-[0.5px]" style={{ color: 'var(--text-primary)' }}>
-            {editingGroup ? 'Edit Group' : 'Add New Group'}
+          <h2 className="text-sm font-medium" style={{ color: isDarkMode ? '#FFFFFF' : '#111827' }}>
+            {editingGroup ? 'Edit Group' : 'New Group'}
           </h2>
         <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-white/5"
-            style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-secondary)' }}
+            className="w-5 h-5 rounded flex items-center justify-center hover:bg-white/5"
+            style={{ 
+              color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'
+            }}
         >
             <X size={14} />
         </button>
       </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-2.5">
           {/* Company Selection */}
             <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Company</label>
+            <label className="block text-[11px] mb-1 opacity-60">Company</label>
             {selectedCompanyId ? (
-              <div className="h-10 px-3 rounded flex items-center" style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)' }}>
-                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <div className="h-8 px-2.5 rounded-sm flex items-center" style={{ 
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', 
+                border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
+              }}>
+                <span className="text-xs">
                 {companies.find(c => c.id === selectedCompanyId)?.name || 'Selected Company'}
                 </span>
               </div>
@@ -3282,11 +3183,15 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
               <select
                 value={formData.company_id}
                 onChange={(e) => setFormData(prev => ({ ...prev, company_id: e.target.value }))}
-                className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
-                style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+                className="w-full h-8 px-2.5 rounded-sm text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer"
+                style={{ 
+                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', 
+                  border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                  color: isDarkMode ? '#FFFFFF' : '#111827'
+                }}
                 required
               >
-                <option value="">Select a company...</option>
+                <option value="">Select company</option>
                 {companies.map(company => (
                   <option key={company.id} value={company.id}>
                     {company.name}
@@ -3298,42 +3203,54 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
 
           {/* Group Name */}
           <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Group Name</label>
+            <label className="block text-[11px] mb-1 opacity-60">Name</label>
               <input
                 type="text"
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Enter group name..."
-              className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
-              style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+              placeholder="Group name"
+              className="w-full h-8 px-2.5 rounded-sm text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+              style={{ 
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                color: isDarkMode ? '#FFFFFF' : '#111827'
+              }}
                 required
               />
             </div>
 
           {/* Description */}
           <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Description</label>
+            <label className="block text-[11px] mb-1 opacity-60">Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Enter group description..."
-              rows={3}
-              className="w-full px-3 py-2 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all resize-none"
-              style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+              placeholder="Brief description"
+              rows={2}
+              className="w-full px-2.5 py-1.5 rounded-sm text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all resize-none"
+              style={{ 
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                color: isDarkMode ? '#FFFFFF' : '#111827'
+              }}
             />
           </div>
 
           {/* Category */}
           <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Category</label>
+            <label className="block text-[11px] mb-1 opacity-60">Category</label>
               <select
                 value={formData.category}
                 onChange={(e) => handleCategoryChange(e.target.value)}
-              className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
-                style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+              className="w-full h-8 px-2.5 rounded-sm text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer"
+                style={{ 
+                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                  border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                  color: isDarkMode ? '#FFFFFF' : '#111827'
+                }}
                 required
               >
-              <option value="">Select a category...</option>
+              <option value="">Select category</option>
               <option value="Real Estate">Real Estate</option>
               <option value="Business">Business</option>
               <option value="Community">Community</option>
@@ -3359,27 +3276,35 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
 
           {/* Audience Size */}
             <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Audience Size</label>
+            <label className="block text-[11px] mb-1 opacity-60">Audience Size</label>
               <input
                 type="number"
                 value={formData.audience_size}
                 onChange={(e) => handleAudienceSizeChange(parseInt(e.target.value) || 0)}
-              placeholder="Enter audience size..."
+                placeholder="Size"
                 min="0"
-              className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
-                style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+              className="w-full h-8 px-2.5 rounded-sm text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+                style={{ 
+                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                  border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                  color: isDarkMode ? '#FFFFFF' : '#111827'
+                }}
                 required
               />
           </div>
 
           {/* Privacy */}
           <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Privacy</label>
+            <label className="block text-[11px] mb-1 opacity-60">Privacy</label>
             <select
               value={formData.privacy}
               onChange={(e) => setFormData(prev => ({ ...prev, privacy: e.target.value }))}
-              className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
-              style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+              className="w-full h-8 px-2.5 rounded-sm text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer"
+              style={{ 
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                color: isDarkMode ? '#FFFFFF' : '#111827'
+              }}
             >
               <option value="public">Public</option>
               <option value="private">Private</option>
@@ -3388,102 +3313,121 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
           </div>
 
           {/* Location Fields - 2 columns */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {/* Target City */}
             <div>
-              <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Target City</label>
+              <label className="block text-[11px] mb-1 opacity-60">City</label>
               <input
                 type="text"
                 value={formData.target_city}
                 onChange={(e) => setFormData(prev => ({ ...prev, target_city: e.target.value }))}
-                placeholder="e.g. Phoenix"
-                className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
-                style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+                placeholder="Phoenix"
+                className="w-full h-8 px-2.5 rounded-sm text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+                style={{ 
+                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                  border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                  color: isDarkMode ? '#FFFFFF' : '#111827'
+                }}
               />
             </div>
 
             {/* Target State */}
             <div>
-              <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Target State</label>
+              <label className="block text-[11px] mb-1 opacity-60">State</label>
               <input
                 type="text"
                 value={formData.target_state}
                 onChange={(e) => setFormData(prev => ({ ...prev, target_state: e.target.value }))}
-                placeholder="e.g. AZ"
+                placeholder="AZ"
                 maxLength={2}
-                className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all uppercase"
-                style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+                className="w-full h-8 px-2.5 rounded-sm text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all uppercase"
+                style={{ 
+                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                  border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                  color: isDarkMode ? '#FFFFFF' : '#111827'
+                }}
               />
             </div>
           </div>
 
           {/* Quality Rating */}
           <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
-              Quality Rating ({formData.quality_rating}/10)
+            <label className="block text-[11px] mb-1 opacity-60">
+              Quality ({formData.quality_rating}/10)
             </label>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <input
                 type="range"
                 min="1"
                 max="10"
                 value={formData.quality_rating}
                 onChange={(e) => setFormData(prev => ({ ...prev, quality_rating: parseInt(e.target.value) }))}
-                className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
+                className="flex-1 h-1 rounded appearance-none cursor-pointer"
                 style={{ 
-                  background: `linear-gradient(to right, #EAB308 0%, #EAB308 ${(formData.quality_rating - 1) * 11.11}%, var(--input-bg) ${(formData.quality_rating - 1) * 11.11}%, var(--input-bg) 100%)`
+                  background: `linear-gradient(to right, #3B82F6 0%, #3B82F6 ${(formData.quality_rating - 1) * 11.11}%, ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'} ${(formData.quality_rating - 1) * 11.11}%, ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'} 100%)`
                 }}
               />
-              <div className="text-lg font-bold" style={{ color: '#EAB308', minWidth: '40px', textAlign: 'center' }}>
-                {'⭐'.repeat(Math.min(formData.quality_rating, 10))}
+              <div className="text-[11px] opacity-60" style={{ minWidth: '25px', textAlign: 'center' }}>
+                {formData.quality_rating}
               </div>
             </div>
-            <p className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>
-              Rate based on engagement, lead quality, and group responsiveness
-            </p>
           </div>
 
           {/* QA Status */}
           <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>QA Status</label>
+            <label className="block text-[11px] mb-1 opacity-60">Status</label>
             <select
               value={formData.qa_status}
               onChange={(e) => setFormData(prev => ({ ...prev, qa_status: e.target.value }))}
-              className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
-              style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+              className="w-full h-8 px-2.5 rounded-sm text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer"
+              style={{ 
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                color: isDarkMode ? '#FFFFFF' : '#111827'
+              }}
             >
-              <option value="new">New - Just Added</option>
-              <option value="pending_approval">Pending Approval - Waiting to Join</option>
-              <option value="approved">Approved - Ready to Post</option>
-              <option value="rejected">Rejected - Can't Post Here</option>
+              <option value="new">New</option>
+              <option value="pending_approval">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
             </select>
           </div>
         
           {/* Tier Display */}
           <div>
-            <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Tier (Auto-assigned)</label>
-            <div className="h-10 px-3 rounded flex items-center" style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)' }}>
-              <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-                {formData.tier.toUpperCase()} - Based on category and audience size
+            <label className="block text-[11px] mb-1 opacity-60">Tier</label>
+            <div className="h-8 px-2.5 rounded-sm flex items-center" style={{ 
+              backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+              border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`
+            }}>
+              <span className="text-xs opacity-80">
+                {formData.tier.toUpperCase()}
               </span>
             </div>
           </div>
         
           {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-6">
+          <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
             <button
               type="button"
               onClick={onClose}
-              className="h-10 px-4 rounded text-sm font-medium uppercase tracking-[0.5px] transition-colors hover:bg-white/5"
-              style={{ border: '1px solid var(--border-neutral)', color: 'var(--text-secondary)' }}
+              className="h-7 px-3 rounded-sm text-[11px] font-medium transition-all hover:opacity-80"
+              style={{ 
+                color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', 
+                backgroundColor: 'transparent'
+              }}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="h-10 px-4 bg-[#336699] text-white rounded text-sm font-medium uppercase tracking-[0.5px] hover:bg-[#336699]/80 transition-colors"
+              className="h-7 px-4 rounded-sm text-[11px] font-medium transition-all hover:opacity-90"
+              style={{ 
+                backgroundColor: '#3B82F6',
+                color: '#FFFFFF'
+              }}
             >
-              {editingGroup ? 'UPDATE' : 'CREATE'}
+              {editingGroup ? 'Update' : 'Create'}
             </button>
           </div>
           </form>
@@ -3634,6 +3578,10 @@ const Layout = ({
                 setPendingGroupId={setPendingGroupId}
                 showComposeDrawer={showComposeDrawer}
               />} />
+              <Route path="/groups" element={<GroupsPage onEditGroup={(group) => {
+                  setEditingGroup(group)
+                  setShowEditGroupModal(true)
+              }} />} />
               <Route path="/companies" element={<CompaniesPage />} />
           </Routes>
         </main>

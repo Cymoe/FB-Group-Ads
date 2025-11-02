@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Clock, Users, ChevronRight, ChevronLeft } from 'lucide-react'
+import { Clock, Users } from 'lucide-react'
 import type { Post, Group, Company } from '../types/database'
 
 // Function to map post status to tab name
@@ -19,8 +19,6 @@ interface RecentPostsPanelProps {
   groups: Group[]
   companies: Company[]
   selectedCompanyId: string | null
-  isCollapsed: boolean
-  onToggleCollapse: (collapsed: boolean) => void
   onSelectGroup: (groupId: string) => void
 }
 
@@ -64,24 +62,12 @@ export const RecentPostsPanel: React.FC<RecentPostsPanelProps> = ({
   groups,
   companies,
   selectedCompanyId,
-  isCollapsed,
-  onToggleCollapse,
   onSelectGroup
 }) => {
   const [recentPosts, setRecentPosts] = useState<RecentPost[]>([])
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
-  // Save collapsed state to localStorage when it changes
-  useEffect(() => {
-    localStorage.setItem('recentPostsPanelCollapsed', isCollapsed.toString())
-  }, [isCollapsed])
-
-  const toggleCollapse = () => {
-    onToggleCollapse(!isCollapsed)
-  }
-
-  const scrollToPost = (postId: string, postStatus: string) => {
-    console.log('🔄 ScrollToPost called with postId:', postId, 'status:', postStatus)
+  const scrollToPost = (postId: string, _postStatus: string) => {
     
     // Find the post in the posts array to get its status and group
     const post = posts.find(p => p.id === postId)
@@ -92,11 +78,8 @@ export const RecentPostsPanel: React.FC<RecentPostsPanelProps> = ({
     
     // Get the tab name for this post's status
     const targetTab = getStatusTab(post.status)
-    console.log('📑 Target tab:', targetTab)
-    console.log('🔍 Post belongs to group:', post.group_id)
     
     // Select the post's group so the post will be visible
-    console.log('🖱️ Selecting group:', post.group_id)
     onSelectGroup(post.group_id!)
     
     // Find the tab button and click it
@@ -106,14 +89,12 @@ export const RecentPostsPanel: React.FC<RecentPostsPanelProps> = ({
     ) as HTMLElement
     
     if (targetTabButton) {
-      console.log('🖱️ Clicking tab button for:', targetTab)
       targetTabButton.click()
       
       // Wait for the tab to render and filter to clear before scrolling
       setTimeout(() => {
         const postElement = document.getElementById(`post-${postId}`)
         if (postElement) {
-          console.log('✅ Scrolling to post element')
           
           // Scroll to the post with smooth behavior
           postElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -132,7 +113,6 @@ export const RecentPostsPanel: React.FC<RecentPostsPanelProps> = ({
           }, 2000)
         } else {
           console.error('❌ Post element still not found after tab switch')
-          console.log('Available post IDs:', Array.from(document.querySelectorAll('[id^="post-"]')).map(el => el.id))
         }
       }, 700)
     } else {
@@ -172,38 +152,12 @@ export const RecentPostsPanel: React.FC<RecentPostsPanelProps> = ({
     setRecentPosts(recent)
   }, [posts, groups, statusFilter, selectedCompanyId])
 
-  console.log('RecentPostsPanel: rendering with', posts.length, 'posts')
 
   return (
-    <>
-      {/* Collapsed Vertical Tab */}
-      {isCollapsed && (
-        <div 
-          onClick={toggleCollapse}
-          className="fixed right-0 top-16 bottom-0 w-12 flex flex-col items-center justify-center cursor-pointer z-10 transition-all hover:bg-white/5"
-          style={{ backgroundColor: 'var(--card-bg)', borderLeft: '1px solid var(--border-neutral)' }}
-        >
-          <div className="flex flex-col items-center gap-2 select-none">
-            <ChevronLeft size={20} style={{ color: 'var(--text-secondary)' }} />
-            <div className="writing-mode-vertical text-sm font-medium tracking-wider" style={{ 
-              color: 'var(--text-primary)',
-              writingMode: 'vertical-rl',
-              textOrientation: 'mixed'
-            }}>
-              RECENT POSTS
-            </div>
-            <Clock size={16} style={{ color: 'var(--text-secondary)' }} />
-          </div>
-        </div>
-      )}
-
-      {/* Expanded Panel */}
-      <div 
-        className={`flex flex-col fixed right-0 top-16 bottom-0 z-10 transition-all duration-300 ease-in-out ${
-          isCollapsed ? 'w-0 opacity-0 pointer-events-none translate-x-full' : 'w-80 opacity-100'
-        }`}
-        style={{ backgroundColor: 'var(--card-bg)', borderLeft: '1px solid var(--border-neutral)', overscrollBehavior: 'contain' }}
-      >
+    <div 
+      className="flex flex-col fixed right-0 top-0 bottom-0 z-10 w-80"
+      style={{ backgroundColor: 'var(--card-bg)', borderLeft: '1px solid var(--border-neutral)', overscrollBehavior: 'contain' }}
+    >
         {/* Header */}
         <div className="p-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border-neutral)' }}>
           <div className="flex items-center justify-between mb-3">
@@ -213,19 +167,9 @@ export const RecentPostsPanel: React.FC<RecentPostsPanelProps> = ({
                 Recent Posts
               </h3>
             </div>
-            <div className="flex items-center gap-2">
-              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                {recentPosts.length} {recentPosts.length === 1 ? 'post' : 'posts'}
-              </p>
-              <button
-                onClick={toggleCollapse}
-                className="w-6 h-6 rounded flex items-center justify-center transition-colors hover:bg-white/10"
-                style={{ color: 'var(--text-secondary)' }}
-                title="Collapse panel"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              {recentPosts.length} {recentPosts.length === 1 ? 'post' : 'posts'}
+            </p>
           </div>
         
         {/* Status Filter */}
@@ -397,13 +341,12 @@ export const RecentPostsPanel: React.FC<RecentPostsPanelProps> = ({
         )}
       </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t flex-shrink-0" style={{ borderColor: 'var(--border-neutral)' }}>
-          <div className="text-xs text-center" style={{ color: 'var(--text-disabled)' }}>
-            Showing latest posts • Click to navigate
-          </div>
+      {/* Footer */}
+      <div className="p-4 border-t flex-shrink-0" style={{ borderColor: 'var(--border-neutral)' }}>
+        <div className="text-xs text-center" style={{ color: 'var(--text-disabled)' }}>
+          Showing latest posts • Click to navigate
         </div>
       </div>
-    </>
+    </div>
   )
 }

@@ -142,7 +142,13 @@ export const aiTemplateStructure = {
           ]},
           value_tips: { name: '💡 Value Tips', templates: [
             { id: 'maintenance_tips', name: 'Roof Maintenance Tips', icon: '🔧', prompt: 'Generate a Facebook post with roof maintenance tips. Include: gutter cleaning, trim trees, inspect regularly, extend roof life, professional inspection benefits. Company: {company}' },
-            { id: 'seasonal_care', name: 'Seasonal Roof Care', icon: '🍂', prompt: 'Generate a Facebook post about seasonal roof maintenance. Include: what to check, prevent damage, timing importance, inspection offer. Company: {company}' }
+            { id: 'seasonal_care', name: 'Seasonal Roof Care', icon: '🍂', prompt: 'Generate a Facebook post about seasonal roof maintenance. Include: what to check, prevent damage, timing importance, inspection offer. Company: {company}' },
+            { id: 'ventilation_importance', name: 'Proper Roof Ventilation', icon: '💨', prompt: 'Generate a Facebook post about roof ventilation importance. Include: prevent moisture buildup, extend shingle life, reduce energy costs, attic temperature control, signs of poor ventilation. Company: {company}' },
+            { id: 'gutter_maintenance', name: 'Gutter Maintenance Guide', icon: '🌧️', prompt: 'Generate a Facebook post about gutter maintenance. Include: cleaning frequency, prevent water damage, overflow prevention, downspout care, when to replace. Company: {company}' },
+            { id: 'shingle_inspection', name: 'Inspect Your Shingles', icon: '🔍', prompt: 'Generate a Facebook post about shingle inspection tips. Include: what to look for, missing or damaged shingles, curling edges, granule loss, when to call a pro. Company: {company}' },
+            { id: 'prevent_ice_dams', name: 'Prevent Ice Dams', icon: '❄️', prompt: 'Generate a Facebook post about preventing ice dams on roofs. Include: proper insulation, ventilation, roof raking tips, danger signs, professional solutions. Company: {company}' },
+            { id: 'extend_roof_life', name: 'Extend Your Roof Life', icon: '⏳', prompt: 'Generate a Facebook post with tips to extend roof lifespan. Include: regular maintenance schedule, professional inspections, immediate repairs, material care, cost savings. Company: {company}' },
+            { id: 'attic_ventilation_tips', name: 'Attic Ventilation Tips', icon: '🏠', prompt: 'Generate a Facebook post about attic ventilation for roof health. Include: prevent mold, reduce heat, lower energy bills, extend roof life, proper airflow. Company: {company}' }
           ]},
           cost_saver: { name: '💰 Cost Saver', templates: [
             { id: 'catch_early', name: 'Catch Problems Early', icon: '👀', prompt: 'Generate a Facebook post about catching roof problems early. Include: small fixes vs full replacement, cost comparison, inspection value, prevent major expense. Company: {company}' },
@@ -959,6 +965,674 @@ export const aiTemplateStructure = {
           social_proof: { name: '🏆 Social Proof', templates: [
             { id: 'businesses_helped', name: 'Businesses We\'ve Helped', icon: '🏢', prompt: 'Generate a Facebook post about businesses helped. Include: commercial expertise, successful placements, local knowledge, ready to help your business. Company: {company}' }
           ]}
+        }
+      }
+    }
+  },
+  healthcare: {
+    name: 'Healthcare',
+    icon: '🏥',
+    description: 'Medical, Dental, Urgent Care, Mental Health & More',
+    serviceTypes: {
+      dental: {
+        name: 'Dental',
+        icon: '🦷',
+        description: 'Cleanings, Orthodontics, Cosmetic',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'free_consultation', name: 'Free Consultation', icon: '🎁', prompt: 'Generate a Facebook post for a FREE dental consultation. Include: exam and X-rays included, early detection benefits, what to expect, no-obligation, booking CTA. Company: {company}' },
+              { id: 'cleaning_special', name: 'Cleaning Special', icon: '✨', prompt: 'Generate a Facebook post for dental cleaning special. Include: discounted cleaning, gum disease check, oral health assessment, family-friendly, booking CTA. Company: {company}' },
+              { id: 'ortho_discount', name: 'Orthodontic Discount', icon: '🦷', prompt: 'Generate a Facebook post for orthodontic treatment discount. Include: straighten teeth, invisalign options, payment plans, smile transformation, consultation CTA. Company: {company}' }
+            ]
+          },
+          value_tips: {
+            name: 'Value Tips',
+            templates: [
+              { id: 'oral_health_tips', name: 'Oral Health Tips', icon: '💡', prompt: 'Generate a Facebook post with oral health tips. Include: brushing technique, flossing importance, diet tips, prevention value, regular checkups. Company: {company}' }
+            ]
+          },
+          cost_saver: {
+            name: 'Cost Saver',
+            templates: [
+              { id: 'prevent_problems', name: 'Prevent Dental Problems', icon: '💰', prompt: 'Generate a Facebook post about preventing costly dental problems. Include: early detection, routine care savings, major treatment costs comparison, preventive value. Company: {company}' }
+            ]
+          },
+          quick_tip: {
+            name: 'Quick Tip',
+            templates: [
+              { id: 'brushing_tips', name: 'Proper Brushing', icon: '⚡', prompt: 'Generate a brief Facebook post about proper brushing technique. Include: frequency, duration, technique, replace toothbrush timing, professional care. Company: {company}' }
+            ]
+          },
+          diy_guide: {
+            name: 'DIY Guide',
+            templates: [
+              { id: 'home_care', name: 'At-Home Dental Care', icon: '🔧', prompt: 'Generate a Facebook post with at-home dental care tips. Include: daily routine, products to use, what to avoid, professional checkup timing. Company: {company}' }
+            ]
+          },
+          warning_post: {
+            name: 'Warning Post',
+            templates: [
+              { id: 'warning_signs', name: 'Dental Warning Signs', icon: '⚠️', prompt: 'Generate a Facebook post about dental warning signs. Include: bleeding gums, tooth sensitivity, bad breath, pain symptoms, urgent care CTA. Company: {company}' }
+            ]
+          },
+          personal_story: {
+            name: 'Customer Story',
+            templates: [
+              { id: 'smile_transformation', name: 'Smile Transformation', icon: '⭐', prompt: 'Generate a Facebook post about patient smile transformation. Include: before/after, patient happiness, confidence restored, consultation CTA. Company: {company}' }
+            ]
+          },
+          local_alert: {
+            name: 'Local Alert',
+            templates: [
+              { id: 'new_patient_welcome', name: 'New Patients Welcome', icon: '📍', prompt: 'Generate a Facebook post welcoming new patients. Include: accepting new patients, insurance accepted, scheduling CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      medical: {
+        name: 'Medical',
+        icon: '👨‍⚕️',
+        description: 'Primary Care, Family Medicine, Urgent Care',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'new_patient', name: 'New Patient Special', icon: '🎁', prompt: 'Generate a Facebook post for new patient welcome. Include: comprehensive exam, accepting new patients, insurance accepted, convenient scheduling, CTA. Company: {company}' }
+            ]
+          },
+          value_tips: {
+            name: 'Value Tips',
+            templates: [
+              { id: 'wellness_tips', name: 'Wellness Tips', icon: '💡', prompt: 'Generate a Facebook post with general wellness tips. Include: preventive care, healthy lifestyle, annual checkups importance, professional care. Company: {company}' }
+            ]
+          }
+        }
+      },
+      urgent_care: {
+        name: 'Urgent Care',
+        icon: '🚑',
+        description: 'Walk-In Care, Minor Emergencies',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'no_wait', name: 'No Appointment Needed', icon: '⚡', prompt: 'Generate a Facebook post about walk-in urgent care. Include: no appointment needed, extended hours, treat minor emergencies, convenient location, walk-in CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      mental_health: {
+        name: 'Mental Health',
+        icon: '🧠',
+        description: 'Therapy, Counseling, Psychiatry',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'wellness_services', name: 'Mental Wellness Services', icon: '🧘', prompt: 'Generate a Facebook post about mental health services. Include: therapy options, counseling available, insurance accepted, taking care of you, consultation CTA. Company: {company}' }
+            ]
+          }
+        }
+      }
+    }
+  },
+  beauty_spa: {
+    name: 'Beauty & Spa',
+    icon: '💅',
+    description: 'Salon, Spa, Nails, Skincare & More',
+    serviceTypes: {
+      salon: {
+        name: 'Hair Salon',
+        icon: '💇',
+        description: 'Cuts, Color, Styling',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'color_special', name: 'Color Special', icon: '🎨', prompt: 'Generate a Facebook post for hair coloring special. Include: transform your look, expert colorists, quality products, book now, appointment CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      nails: {
+        name: 'Nails',
+        icon: '💅',
+        description: 'Manicure, Pedicure, Nail Art',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'mani_pedi', name: 'Mani-Pedi Special', icon: '✨', prompt: 'Generate a Facebook post for mani-pedi special. Include: treat yourself, relaxing experience, gel options, booking CTA. Company: {company}' }
+            ]
+          }
+        }
+      }
+    }
+  },
+  fitness: {
+    name: 'Fitness & Gym',
+    icon: '💪',
+    description: 'Gyms, Personal Training, Classes',
+    serviceTypes: {
+      gym: {
+        name: 'Gym',
+        icon: '🏋️',
+        description: 'Equipment, Facilities, Memberships',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'join_now', name: 'Join Now Special', icon: '🎁', prompt: 'Generate a Facebook post for gym membership special. Include: join now offer, equipment variety, clean facility, fitness community, tour CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      personal_training: {
+        name: 'Personal Training',
+        icon: '🏃',
+        description: 'One-on-One Training, Coaching',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'training_special', name: 'Personal Training Special', icon: '💪', prompt: 'Generate a Facebook post for personal training special. Include: achieve your goals, custom programs, experienced trainers, results focus, consultation CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      classes: {
+        name: 'Fitness Classes',
+        icon: '🧘',
+        description: 'Yoga, Zumba, Pilates',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'class_intro', name: 'Try a Class Free', icon: '🎉', prompt: 'Generate a Facebook post for free class trial. Include: try before you buy, variety of classes, welcoming environment, first class free, CTA. Company: {company}' }
+            ]
+          }
+        }
+      }
+    }
+  },
+  restaurant: {
+    name: 'Restaurant',
+    icon: '🍽️',
+    description: 'Dining, Delivery, Catering & More',
+    serviceTypes: {
+      dining: {
+        name: 'Dining',
+        icon: '🍴',
+        description: 'Eat-In Restaurant',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'happy_hour', name: 'Happy Hour Special', icon: '🍺', prompt: 'Generate a Facebook post for happy hour special. Include: discounted drinks, appetizer deals, time frame, great atmosphere, visit us CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      delivery: {
+        name: 'Delivery',
+        icon: '🚗',
+        description: 'Takeout, Delivery, Pickup',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'delivery_special', name: 'Delivery Special', icon: '📦', prompt: 'Generate a Facebook post for delivery special. Include: order online, fast delivery, contactless option, delicious food, order now CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      catering: {
+        name: 'Catering',
+        icon: '🎉',
+        description: 'Events, Parties, Business',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'event_catering', name: 'Event Catering Available', icon: '🎊', prompt: 'Generate a Facebook post for event catering. Include: weddings, parties, corporate events, menu options, quote CTA. Company: {company}' }
+            ]
+          }
+        }
+      }
+    }
+  },
+  retail: {
+    name: 'Retail',
+    icon: '🛍️',
+    description: 'Shopping, Products, Services',
+    serviceTypes: {
+      clothing: {
+        name: 'Clothing',
+        icon: '👕',
+        description: 'Fashion, Apparel',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'sale_event', name: 'Sale Event', icon: '🏷️', prompt: 'Generate a Facebook post for sale event. Include: percentage off, select items, limited time, new arrivals, shop now CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      gifts: {
+        name: 'Gifts',
+        icon: '🎁',
+        description: 'Gift Shop, Special Items',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'gift_guide', name: 'Gift Guide', icon: '🎀', prompt: 'Generate a Facebook post for gift guide. Include: perfect gifts, unique items, gift wrapping, shop local, visit us CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      specialty: {
+        name: 'Specialty Products',
+        icon: '🛒',
+        description: 'Unique Items',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'new_arrivals', name: 'New Arrivals', icon: '✨', prompt: 'Generate a Facebook post about new arrivals. Include: just in, featured products, limited stock, shop now, CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      home: {
+        name: 'Home Goods',
+        icon: '🏠',
+        description: 'Furniture, Decor',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'home_decor', name: 'Home Decor Sale', icon: '🖼️', prompt: 'Generate a Facebook post for home decor sale. Include: transform your space, great prices, quality items, in-store only, visit CTA. Company: {company}' }
+            ]
+          }
+        }
+      }
+    }
+  },
+  legal: {
+    name: 'Legal',
+    icon: '⚖️',
+    description: 'Law Firms, Attorney Services',
+    serviceTypes: {
+      family_law: {
+        name: 'Family Law',
+        icon: '👨‍👩‍👧',
+        description: 'Divorce, Custody, Adoption',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'consultation', name: 'Free Consultation', icon: '📞', prompt: 'Generate a Facebook post for free legal consultation. Include: experienced attorneys, compassionate guidance, your rights, consultation CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      criminal: {
+        name: 'Criminal Defense',
+        icon: '🛡️',
+        description: 'Defense Attorney, Representation',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'legal_help', name: 'Legal Defense Available', icon: '⚖️', prompt: 'Generate a Facebook post for criminal defense services. Include: experienced defense, protect your rights, legal expertise, consultation CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      personal_injury: {
+        name: 'Personal Injury',
+        icon: '🚗',
+        description: 'Accidents, Claims, Representation',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'injury_claim', name: 'Injury Claims', icon: '💰', prompt: 'Generate a Facebook post for personal injury services. Include: get compensation you deserve, no fee unless we win, experience matters, consultation CTA. Company: {company}' }
+            ]
+          }
+        }
+      }
+    }
+  },
+  financial: {
+    name: 'Financial',
+    icon: '💰',
+    description: 'Banking, Insurance, Investing',
+    serviceTypes: {
+      banking: {
+        name: 'Banking',
+        icon: '🏦',
+        description: 'Accounts, Loans, Services',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'account_special', name: 'Account Special', icon: '🎁', prompt: 'Generate a Facebook post for banking account special. Include: open account bonus, competitive rates, local service, convenient locations, visit us CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      insurance: {
+        name: 'Insurance',
+        icon: '🛡️',
+        description: 'Auto, Home, Life',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'insurance_quote', name: 'Free Insurance Quote', icon: '📋', prompt: 'Generate a Facebook post for free insurance quote. Include: save money, multiple carriers, personalized service, no obligation, quote CTA. Company: {company}' }
+            ]
+          }
+        }
+      }
+    }
+  },
+  veterinary: {
+    name: 'Veterinary',
+    icon: '🐾',
+    description: 'Pet Care, Animal Health',
+    serviceTypes: {
+      pet_care: {
+        name: 'Pet Care',
+        icon: '🐕',
+        description: 'Routine Care, Vaccinations',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'new_patient', name: 'New Patient Welcome', icon: '🎉', prompt: 'Generate a Facebook post for new pet patient welcome. Include: accepting new patients, experienced vets, caring team, pet health focus, appointment CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      grooming: {
+        name: 'Grooming',
+        icon: '✂️',
+        description: 'Dog Grooming, Spa Services',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'grooming_special', name: 'Grooming Special', icon: '✨', prompt: 'Generate a Facebook post for pet grooming special. Include: clean and fresh pets, professional groomers, spa services, book appointment CTA. Company: {company}' }
+            ]
+          }
+        }
+      }
+    }
+  },
+  education: {
+    name: 'Education',
+    icon: '📚',
+    description: 'Schools, Tutoring, Training',
+    serviceTypes: {
+      tutoring: {
+        name: 'Tutoring',
+        icon: '📖',
+        description: 'Academic Support, Test Prep',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'tutoring_special', name: 'Tutoring Special', icon: '🎓', prompt: 'Generate a Facebook post for tutoring special. Include: improve grades, test prep available, experienced tutors, individual attention, consultation CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      training: {
+        name: 'Training',
+        icon: '🎯',
+        description: 'Skills, Professional Development',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'training_class', name: 'Training Classes', icon: '🏫', prompt: 'Generate a Facebook post for training classes. Include: learn new skills, practical training, certification available, upcoming class, registration CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      enrichment: {
+        name: 'Enrichment',
+        icon: '🌟',
+        description: 'Kids Programs, Camps',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'kids_programs', name: 'Kids Programs', icon: '👶', prompt: 'Generate a Facebook post for kids enrichment programs. Include: fun learning, ages served, upcoming programs, register now CTA. Company: {company}' }
+            ]
+          }
+        }
+      }
+    }
+  },
+  marketing: {
+    name: 'Marketing',
+    icon: '📢',
+    description: 'Digital Marketing, Advertising Services',
+    serviceTypes: {
+      digital: {
+        name: 'Digital Marketing',
+        icon: '💻',
+        description: 'SEO, Social Media, Online Ads',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'marketing_consult', name: 'Free Marketing Consultation', icon: '🎯', prompt: 'Generate a Facebook post for free marketing consultation. Include: grow your business, online presence, proven strategies, no-obligation, consultation CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      advertising: {
+        name: 'Advertising',
+        icon: '📺',
+        description: 'Creative, Media Buying',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'ad_campaign', name: 'Ad Campaign Special', icon: '📊', prompt: 'Generate a Facebook post for advertising campaign special. Include: reach more customers, effective campaigns, track results, growth focused, consultation CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      branding: {
+        name: 'Branding',
+        icon: '🎨',
+        description: 'Logo, Brand Identity',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'branding_package', name: 'Branding Package', icon: '✨', prompt: 'Generate a Facebook post for branding package. Include: professional identity, logo design, brand guidelines, elevate your business, consultation CTA. Company: {company}' }
+            ]
+          }
+        }
+      }
+    }
+  },
+  emergency: {
+    name: 'Emergency',
+    icon: '🚨',
+    description: 'Emergency Services, Support',
+    serviceTypes: {
+      medical_emergency: {
+        name: 'Medical Emergency',
+        icon: '🚑',
+        description: 'Urgent Medical Care',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'emergency_services', name: 'Emergency Services', icon: '⚡', prompt: 'Generate a Facebook post for emergency medical services. Include: 24/7 availability, urgent care, experienced team, life-saving services, call CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      emergency_repair: {
+        name: 'Emergency Repair',
+        icon: '🛠️',
+        description: '24/7 Repair Services',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: '24_7_repair', name: '24/7 Emergency Repair', icon: '⚠️', prompt: 'Generate a Facebook post for 24/7 emergency repair services. Include: available anytime, fast response, prevent damage, experienced technicians, call now CTA. Company: {company}' }
+            ]
+          }
+        }
+      }
+    }
+  },
+  payment_billing: {
+    name: 'Payment & Billing',
+    icon: '💳',
+    description: 'Billing Services, Payment Processing',
+    serviceTypes: {
+      billing: {
+        name: 'Billing Services',
+        icon: '📄',
+        description: 'Medical Billing, Invoicing',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'billing_services', name: 'Billing Services', icon: '📊', prompt: 'Generate a Facebook post for billing services. Include: streamline billing, reduce errors, faster payments, expert team, consultation CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      payment_processing: {
+        name: 'Payment Processing',
+        icon: '💳',
+        description: 'Credit Card Processing, POS',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'payment_system', name: 'Payment Processing Special', icon: '💵', prompt: 'Generate a Facebook post for payment processing special. Include: accept all cards, low rates, secure processing, easy setup, consultation CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      collections: {
+        name: 'Collections',
+        icon: '📞',
+        description: 'Account Management, Recovery',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'collections_service', name: 'Collections Services', icon: '📋', prompt: 'Generate a Facebook post for collections services. Include: improve cash flow, professional approach, compliance focused, recovery expertise, consultation CTA. Company: {company}' }
+            ]
+          }
+        }
+      }
+    }
+  },
+  appointments: {
+    name: 'Appointments',
+    icon: '📅',
+    description: 'Scheduling, Booking Services',
+    serviceTypes: {
+      scheduling: {
+        name: 'Scheduling Software',
+        icon: '🗓️',
+        description: 'Online Booking, Calendar',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'booking_system', name: 'Online Booking System', icon: '📱', prompt: 'Generate a Facebook post for online booking system. Include: 24/7 booking, reduce no-shows, automated reminders, easy setup, demo CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      appointment_reminders: {
+        name: 'Appointment Reminders',
+        icon: '🔔',
+        description: 'Automated Reminders',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'reminder_service', name: 'Automated Reminders', icon: '⏰', prompt: 'Generate a Facebook post for automated appointment reminders. Include: reduce no-shows, text/email reminders, customizable, save time, demo CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      consultation: {
+        name: 'Consultation Booking',
+        icon: '👔',
+        description: 'Professional Consultations',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'consult_booking', name: 'Book Consultation', icon: '📞', prompt: 'Generate a Facebook post for consultation booking. Include: expert advice, convenient scheduling, flexible times, book online, CTA. Company: {company}' }
+            ]
+          }
+        }
+      }
+    }
+  },
+  customer_service: {
+    name: 'Customer Service',
+    icon: '🎧',
+    description: 'Support, Call Centers',
+    serviceTypes: {
+      support: {
+        name: 'Support Services',
+        icon: '🤝',
+        description: 'Help Desk, Technical Support',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'support_service', name: 'Customer Support Available', icon: '💬', prompt: 'Generate a Facebook post for customer support services. Include: always available, helpful team, quick resolution, satisfaction focused, contact us CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      call_center: {
+        name: 'Call Center',
+        icon: '📞',
+        description: 'Inbound, Outbound',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'call_center_service', name: 'Call Center Services', icon: '☎️', prompt: 'Generate a Facebook post for call center services. Include: professional team, extended hours, handle inquiries, quality service, consultation CTA. Company: {company}' }
+            ]
+          }
+        }
+      },
+      live_chat: {
+        name: 'Live Chat',
+        icon: '💬',
+        description: 'Online Chat Support',
+        goals: {
+          special_offer: {
+            name: 'Special Offer',
+            templates: [
+              { id: 'live_chat_service', name: 'Live Chat Support', icon: '📱', prompt: 'Generate a Facebook post for live chat support. Include: instant help, 24/7 available, quick answers, customer satisfaction, try now CTA. Company: {company}' }
+            ]
+          }
         }
       }
     }

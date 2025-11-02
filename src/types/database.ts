@@ -14,7 +14,6 @@ export type PostType =
 
 export type PostStatus = 'draft' | 'ready_to_post' | 'pending_approval' | 'posted' | 'leads_collected'
 
-export type GroupTier = 'high' | 'medium' | 'low'
 export type GroupStatus = 'active' | 'inactive' | 'pending'
 
 export type Company = {
@@ -34,17 +33,18 @@ export type GroupQAStatus = 'new' | 'pending_approval' | 'approved' | 'rejected'
 export type Group = {
   id: string
   name: string
+  description?: string
   company_id?: string
-  tier?: GroupTier
   category?: string
   audience_size?: number
   status: GroupStatus
+  facebook_url?: string  // Facebook group URL
   
   // NEW: Enhanced group tracking fields
   privacy?: GroupPrivacy  // Group privacy setting
   target_city?: string  // Geographic targeting - city/town
   target_state?: string  // Geographic targeting - state
-  quality_rating?: number  // 1-10 star rating for group quality
+  quality_rating?: number  // 1-5 star rating for group quality
   qa_status?: GroupQAStatus  // Approval workflow status
   
   user_id: string  // Add user context
@@ -69,6 +69,16 @@ export type GroupStats = Group & {
   last_post_date?: string
 }
 
+export type PostAnalytics = {
+  reactions: number // Facebook reactions (like, love, etc)
+  comments: number
+  shares: number
+  reach?: number // How many people saw it
+  clicks?: number // Link clicks
+  engagement_rate?: number // (reactions + comments + shares) / reach
+  performance_score?: number // 0-100 calculated score
+}
+
 export type Post = {
   id: string
   company_id: string
@@ -88,6 +98,8 @@ export type Post = {
   created_at: string
   updated_at: string
   posted_at?: string
+  // New analytics structure
+  analytics?: PostAnalytics
   company?: Company
   group?: Group
 }
@@ -102,4 +114,64 @@ export type Lead = {
   user_id: string  // Add user context
   created_at: string
   post?: Post
+}
+
+// Global Group Database Types
+export type GlobalGroup = {
+  id: string
+  name: string
+  category: string
+  description?: string
+  facebook_url?: string
+  
+  // Location
+  location: {
+    city: string
+    state: string
+    country?: string
+    coordinates?: {
+      lat: number
+      lng: number
+    }
+  }
+  
+  // Metadata
+  member_count: number
+  privacy: GroupPrivacy
+  
+  // Quality Metrics
+  quality_score: number  // 0-100
+  verified: boolean
+  
+  // Quality Indicators (NEW)
+  quality_indicators?: {
+    engagement_rate?: number  // e.g., 4.2 (%)
+    avg_comments_per_post?: number
+    response_rate?: number  // e.g., 32 (%)
+    admin_response_time?: string  // e.g., "< 1 hour"
+    business_friendly?: boolean
+    posting_limit?: string  // e.g., "2 per week"
+    best_posting_times?: {
+      days: string[]  // e.g., ["Monday", "Tuesday", "Thursday"]
+      hours: string  // e.g., "9am-2pm"
+    }
+    active_businesses_count?: number
+    content_preferences?: string[]  // e.g., ["Before/After Photos", "DIY Tips"]
+  }
+  
+  // Discovery
+  industries: string[]  // e.g., ['home_services', 'real_estate']
+  tags: string[]
+  
+  // Usage Stats
+  added_by_count: number  // How many users added this
+  trending_score: number
+  
+  // Contribution
+  contributed_by?: string  // user_id who added it
+  contributed_at: string
+  verified_by_admin: boolean
+  
+  created_at: string
+  updated_at: string
 }

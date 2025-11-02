@@ -18,6 +18,10 @@
   --card-bg: #1a1a1a;
   --input-bg: #242424;
   --input-border: #555555;
+  --sidebar-bg: #1a1a1a;
+  --sidebar-text: rgba(255,255,255,0.9);
+  --sidebar-text-secondary: rgba(255,255,255,0.6);
+  --sidebar-text-disabled: rgba(255,255,255,0.38);
 }
 
 /* Light mode variables */
@@ -81,4 +85,18 @@ code, pre, kbd, samp {
   -webkit-box-orient: vertical;
   line-clamp: 3;
   overflow: hidden;
+}
+
+/* Slide-in animation for right drawer */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
 }

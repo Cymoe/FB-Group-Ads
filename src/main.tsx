@@ -2,20 +2,17 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import EnhancedApp from './EnhancedApp'
-
-console.log('🚀 Main.tsx loading...')
-console.log('Root element:', document.getElementById('root'))
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 try {
   const root = createRoot(document.getElementById('root')!)
-  console.log('✅ Root created successfully')
-  
   root.render(
     <StrictMode>
-      <EnhancedApp />
+      <ErrorBoundary>
+        <EnhancedApp />
+      </ErrorBoundary>
     </StrictMode>
   )
-  console.log('✅ App rendered successfully')
 } catch (error) {
   console.error('❌ Error mounting app:', error)
   document.getElementById('root')!.innerHTML = `
