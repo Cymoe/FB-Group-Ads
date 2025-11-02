@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Clock, Eye, Pencil, Shuffle, RotateCw, Edit, Copy, Calendar, CheckCircle, BarChart3, MessageSquare, X } from 'lucide-react'
+import { Clock, Eye, Pencil, Shuffle, RotateCw, Calendar, CheckCircle, BarChart3, MessageSquare, X } from 'lucide-react'
 import { calculateGroupHealth } from '../utils/groupHealth'
-import { getPerformanceInsights, getPerformanceTier } from '../utils/postAnalytics'
+import { getPerformanceInsights } from '../utils/postAnalytics'
 import { useApp } from '../EnhancedApp'
 import toast from 'react-hot-toast'
 import type { Group, Post } from '../types/database'
@@ -18,7 +18,7 @@ type QueueTab = 'scheduled' | 'published' | 'drafts'
 
 export const Dashboard: React.FC<DashboardProps> = ({ groups, posts, selectedCompanyId, onSelectGroup }) => {
   const navigate = useNavigate()
-  const { updatePost, selectedGroupId, setSelectedGroupId } = useApp()
+  const { updatePost, selectedGroupId } = useApp()
   const [activeTab, setActiveTab] = useState<QueueTab>('scheduled')
   const [hoveredPost, setHoveredPost] = useState<string | null>(null)
   

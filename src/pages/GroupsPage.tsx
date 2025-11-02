@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Settings, Search, Filter, Download, ChevronDown, X, Plus, CheckCircle2, ExternalLink, Trash2, Award } from 'lucide-react'
+import { Search, Download, ChevronDown, X, Plus, CheckCircle2, ExternalLink, Trash2, Award } from 'lucide-react'
 import { useApp } from '../EnhancedApp'
 import { calculateGroupHealth } from '../utils/groupHealth'
 import { exportToCSV, exportToJSON, exportToExcel, formatGroupForExport } from '../utils/exportUtils'
@@ -10,13 +9,8 @@ import toast from 'react-hot-toast'
 import { API_BASE_URL } from '../config/api'
 import { FB_GROUP_CATEGORIES } from '../constants/categories'
 
-interface GroupsPageProps {
-  onEditGroup: (group: Group) => void
-}
-
-export const GroupsPage: React.FC<GroupsPageProps> = ({ onEditGroup }) => {
-  const { groups, companies, posts, setSelectedGroupId, isDarkMode, selectedCompanyId, refreshGroups } = useApp()
-  const navigate = useNavigate()
+export const GroupsPage: React.FC = () => {
+  const { groups, companies, posts, isDarkMode, selectedCompanyId } = useApp()
   
   // View state
   const [groupFilter, setGroupFilter] = useState<'my' | 'all'>('all')
@@ -342,11 +336,6 @@ export const GroupsPage: React.FC<GroupsPageProps> = ({ onEditGroup }) => {
     }
   }
 
-  const handleGroupClick = (groupId: string) => {
-    setSelectedGroupId(groupId)
-    navigate('/posts')
-  }
-
   // Fetch global groups
   const fetchGlobalGroups = useCallback(async () => {
     try {
@@ -416,7 +405,6 @@ export const GroupsPage: React.FC<GroupsPageProps> = ({ onEditGroup }) => {
 
       if (response.ok) {
         toast.success(`Added "${groupToAdd.name}" to your groups!`)
-        await refreshGroups()
         await fetchGlobalGroups() // Refresh to show the newly added group
       } else {
         const error = await response.json()
@@ -495,9 +483,8 @@ export const GroupsPage: React.FC<GroupsPageProps> = ({ onEditGroup }) => {
         const result = await response.json()
         toast.success(`Deleted "${groupToDelete.name}" globally. Affected ${result.affected.organizations} organizations and ${result.affected.posts} posts.`)
         
-        // Refresh global groups and user's groups
+        // Refresh global groups
         fetchGlobalGroups()
-        await refreshGroups()
         
         setShowDeleteConfirmModal(false)
         setGroupToDelete(null)
@@ -564,25 +551,6 @@ export const GroupsPage: React.FC<GroupsPageProps> = ({ onEditGroup }) => {
     }
   }
 
-  // Bulk selection handlers
-  const handleSelectAll = () => {
-    if (selectedGroups.size === sortedGroups.length) {
-      setSelectedGroups(new Set())
-    } else {
-      setSelectedGroups(new Set(sortedGroups.map(g => g.id)))
-    }
-  }
-
-  const handleSelectGroup = (groupId: string) => {
-    const newSelection = new Set(selectedGroups)
-    if (newSelection.has(groupId)) {
-      newSelection.delete(groupId)
-    } else {
-      newSelection.add(groupId)
-    }
-    setSelectedGroups(newSelection)
-  }
-
   // Check if all filters are cleared
   const hasActiveFilters = 
     memberCountRange.min || memberCountRange.max ||
@@ -597,7 +565,6 @@ export const GroupsPage: React.FC<GroupsPageProps> = ({ onEditGroup }) => {
     setSelectedStates([])
     setQualityRatingRange({ min: '', max: '' })
     setPrivacyFilter([])
-    setHealthFilter([])
   }
 
   const getPrivacyBadge = (privacy?: string) => {
@@ -619,17 +586,6 @@ export const GroupsPage: React.FC<GroupsPageProps> = ({ onEditGroup }) => {
     )
   }
 
-  const getHealthBadge = (health: ReturnType<typeof calculateGroupHealth>) => {
-    const color = health.color
-    return (
-      <div className="flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-        <span className="text-xs capitalize" style={{ color }}>
-          {health.status}
-        </span>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen p-3 md:p-6" style={{ backgroundColor: 'var(--carbon-black)' }}>

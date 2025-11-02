@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, X, Send, Edit, AlertTriangle, MessageSquare } from 'lucide-react'
+import { Plus, X, Send, AlertTriangle, MessageSquare } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { List } from 'react-window'
@@ -217,15 +217,6 @@ export default function InlinePostComposer({
         // Reset form
         setContent('')
         setIsExpanded(false)
-        setAiContentGenerated(false)
-        setPostMetadata(null) // Clear metadata
-        // Reset AI wizard state
-        setSelectedIndustry(null)
-        setSelectedServiceType(null)
-        setSelectedGoal(null)
-        setSelectedTemplateId(null)
-        setIndustrySearchTerm('')
-        setEditedPrompt('')
         
         if (onCancelEdit) onCancelEdit()
       } else {
@@ -241,12 +232,18 @@ export default function InlinePostComposer({
           post_type: selectedPostType,
           title: content.substring(0, 50) + '...',
           content: content.trim(),
-          status: 'draft',
-          created_at: new Date().toISOString()
+          status: 'draft' as const,
+          leads_count: 0,
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          id: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         }
 
         // Create post
-        onPostCreated(newPost)
+        await onPostCreated(newPost)
         
         // Store created post and show duplicate modal
         setCreatedPost(newPost)
@@ -255,15 +252,6 @@ export default function InlinePostComposer({
         // Reset form
         setContent('')
         setIsExpanded(false)
-        setAiContentGenerated(false)
-        setPostMetadata(null) // Clear metadata
-        // Reset AI wizard state
-        setSelectedIndustry(null)
-        setSelectedServiceType(null)
-        setSelectedGoal(null)
-        setSelectedTemplateId(null)
-        setIndustrySearchTerm('')
-        setEditedPrompt('')
       }
       
     } catch (error) {
@@ -276,15 +264,6 @@ export default function InlinePostComposer({
   const handleCancel = () => {
     setContent('')
     setIsExpanded(false)
-    setAiContentGenerated(false) // Reset AI flag when cancelling
-    setPostMetadata(null) // Clear metadata
-    // Reset AI wizard state
-    setSelectedIndustry(null)
-    setSelectedServiceType(null)
-    setSelectedGoal(null)
-    setSelectedTemplateId(null)
-    setIndustrySearchTerm('')
-    setEditedPrompt('')
     if (isEditMode && onCancelEdit) {
       onCancelEdit()
     }

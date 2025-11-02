@@ -1,10 +1,9 @@
 import React, { useState, useEffect, createContext, useContext } from 'react'
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
-import { MessageSquare, X, Settings, MoreHorizontal, Search, Sun, Moon, Menu, Home, FileText, Compass, Building, Plus, Pencil, Calendar, Clock, Send } from 'lucide-react'
+import { MessageSquare, X, Settings, MoreHorizontal, Search, Sun, Moon, Menu, Home, FileText, Compass, Building, Pencil, Calendar, Clock, Send } from 'lucide-react'
 import { aiTemplateStructure } from './components/aiTemplates'
 import toast, { Toaster } from 'react-hot-toast'
 import { List } from 'react-window'
-import InlinePostComposer from './components/InlinePostComposer'
 import { CompanySelector } from './components/CompanySelector'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { LoginPage } from './pages/LoginPage'
@@ -26,7 +25,7 @@ const AppContext = createContext<{
   selectedGroupId: string | null
   setSelectedCompanyId: (id: string | null) => void
   setSelectedGroupId: (id: string | null) => void
-  addPost: (post: Omit<Post, 'id' | 'created_at' | 'company' | 'group'>) => Promise<void>
+  addPost: (post: Omit<Post, 'id' | 'created_at' | 'company' | 'group'>) => Promise<Post | null>
   updatePost: (id: string, updates: Partial<Post>) => Promise<void>
   addGroup: (group: Omit<Group, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
   updateGroup: (id: string, updates: Partial<Group>) => Promise<void>
@@ -49,7 +48,7 @@ const AppContext = createContext<{
   selectedGroupId: null,
   setSelectedCompanyId: () => {},
   setSelectedGroupId: () => {},
-  addPost: async () => {},
+  addPost: async () => null,
   updatePost: async () => {},
   addGroup: async () => {},
   updateGroup: async () => {},
@@ -536,20 +535,15 @@ const PostsPage = ({
   showComposeDrawer?: boolean
 }) => {
   const { 
-    companies, 
-    groups, 
+    companies,
     posts, 
     selectedCompanyId, 
     selectedGroupId,
-    setSelectedGroupId,
-    updatePost,
+    setSelectedGroupId: _setSelectedGroupId,
     updateGroup,
-    addPost,
     deletePost,
     isDarkMode
   } = useApp()
-  
-  const [editingPost, setEditingPost] = useState<Post | null>(null)
   const [showPostMenu, setShowPostMenu] = useState<string | null>(null)
   const [activeStatusTab, setActiveStatusTab] = useState('draft')
   const [postToDelete, setPostToDelete] = useState<Post | null>(null)
@@ -586,14 +580,6 @@ const PostsPage = ({
   useEffect(() => {
     console.log('🐛 PostsPage - showEditGroupModal:', showEditGroupModal, 'editingGroup:', editingGroup?.name)
   }, [showEditGroupModal, editingGroup])
-
-  const updatePostStatus = async (id: string, status: string) => {
-    try {
-      await updatePost(id, { status: status as any })
-    } catch (error) {
-      console.error('Error updating post status:', error)
-    }
-  }
 
   // Get all templates, filtered by goal if selected
   const getTemplates = () => {
@@ -675,22 +661,6 @@ const PostsPage = ({
       }
     }
   }, [selectedGroupId])
-
-  // Post type icons and info
-const postTypeIcons = {
-    value_post: '💡',
-  warning_post: '⚠️',
-  diy_guide: '🔧',
-    behind_scenes: '🎬',
-    cost_saver: '💰',
-    local_alert: '📍',
-  personal_story: '👤',
-    special_offer: '🎁',
-    quick_tip: '⚡',
-    myth_buster: '🔍',
-  community_intro: '👋',
-    feature_friday: '🎉'
-}
 
   // Calculate workflow metrics
   
@@ -940,10 +910,6 @@ const postTypeIcons = {
                                 
                                 const company = companies.find(c => c.id === selectedCompanyId)
                                 const companyName = company?.name || 'Your Company'
-                                
-                                // Use edited prompt if available, otherwise use original
-                                const promptToUse = editedPrompts[templateKey] || template.prompt
-                                const finalPrompt = promptToUse.replace('{company}', companyName)
                                 
                                 setSelectedTemplateId(template.id)
                                 
@@ -1512,7 +1478,6 @@ const EditGroupModal = ({ group, onSave, onCancel }: {
   const [formData, setFormData] = useState({
     name: group.name,
     category: group.category || '',
-    tier: group.tier || 'low',
     audience_size: group.audience_size || 0,
     status: group.status,
     company_id: group.company_id || ''
@@ -1606,22 +1571,6 @@ const EditGroupModal = ({ group, onSave, onCancel }: {
                   <option value="Parenting">Parenting</option>
                   </select>
                 </div>
-
-                <div>
-                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                  Tier
-                </label>
-                <select
-                  value={formData.tier}
-                  onChange={(e) => setFormData(prev => ({ ...prev, tier: e.target.value as 'high' | 'medium' | 'low' }))}
-                  className="w-full h-10 px-3 rounded-lg text-sm focus:outline-none focus:border-[#336699] focus:ring-1 focus:ring-[#336699]/40 transition-all"
-                  style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
 
                 <div>
                 <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
@@ -2013,7 +1962,7 @@ const Sidebar = ({ onAddGroup, onEditGroup: _onEditGroup }: {
 
 // Left Navigation Component - Sleek Vertical Sidebar
 const LeftNavigation = ({ onAddCompany, onToggleSidebar }: { onAddCompany: () => void, onToggleSidebar?: () => void }) => {
-  const { companies, selectedCompanyId, setSelectedCompanyId, isDarkMode, toggleTheme, isNavExpanded, setIsNavExpanded } = useApp()
+  const { companies, selectedCompanyId, setSelectedCompanyId, isDarkMode, toggleTheme, isNavExpanded: _isNavExpanded, setIsNavExpanded } = useApp()
   const { user, logout, isAuthenticated } = useAuth()
   const location = useLocation()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
@@ -2255,10 +2204,9 @@ const LeftNavigation = ({ onAddCompany, onToggleSidebar }: { onAddCompany: () =>
 }
 
 // Quick Compose Drawer Component - Twitter/X Style
-const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selectedCompanyId, selectedGroupId, initialContent, initialCompanyId, initialGroupId, posts, isDarkMode = true, updatePost, deletePost, editingPost, setEditingPost }: {
+const QuickComposeDrawer = ({ onClose, onPostCreated, groups, selectedCompanyId, selectedGroupId, initialContent, initialCompanyId, initialGroupId, posts, isDarkMode = true, updatePost, deletePost, editingPost, setEditingPost }: {
   onClose: () => void
   onPostCreated: (post: Post) => Promise<Post | null> | void
-  companies: Company[]
   groups: Group[]
   selectedCompanyId: string | null
   selectedGroupId: string | null
@@ -3487,7 +3435,6 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
     description: '',
     company_id: '',
     category: '',
-    tier: 'medium',
     audience_size: 0,
     privacy: 'public',
     target_city: '',
@@ -3505,7 +3452,6 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
         description: editingGroup.description || '',
         company_id: editingGroup.company_id || '',
         category: editingGroup.category || '',
-        tier: editingGroup.tier || 'medium',
         audience_size: editingGroup.audience_size || 0,
         privacy: editingGroup.privacy || 'public',
         target_city: editingGroup.target_city || '',
@@ -3519,7 +3465,6 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
         description: '',
         company_id: selectedCompanyId || '',
         category: '',
-        tier: 'medium',
         audience_size: 0,
         privacy: 'public',
         target_city: '',
@@ -3532,29 +3477,10 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
 
   const handleCategoryChange = (category: string) => {
     setFormData(prev => ({ ...prev, category }))
-    
-    // Auto-assign tier based on category and audience size
-    let tier = 'medium'
-    if (category === 'Real Estate' || category === 'Business') {
-      tier = 'high'
-    } else if (category === 'Community' || category === 'Local') {
-      tier = formData.audience_size > 1000 ? 'high' : 'medium'
-    } else if (category === 'General' || category === 'Social') {
-      tier = formData.audience_size > 2000 ? 'high' : formData.audience_size > 500 ? 'medium' : 'low'
-    }
-    
-    setFormData(prev => ({ ...prev, tier }))
   }
 
   const handleAudienceSizeChange = (audience_size: number) => {
     setFormData(prev => ({ ...prev, audience_size }))
-    
-    // Auto-adjust tier based on audience size
-    let tier = 'low'
-    if (audience_size > 2000) tier = 'high'
-    else if (audience_size > 500) tier = 'medium'
-    
-    setFormData(prev => ({ ...prev, tier }))
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -3813,19 +3739,6 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
             </select>
           </div>
         
-          {/* Tier Display */}
-          <div>
-            <label className="block text-[11px] mb-1 opacity-60">Tier</label>
-            <div className="h-8 px-2.5 rounded-sm flex items-center" style={{ 
-              backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-              border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`
-            }}>
-              <span className="text-xs opacity-80">
-                {formData.tier.toUpperCase()}
-              </span>
-            </div>
-          </div>
-        
           {/* Action Buttons */}
           <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
             <button
@@ -3869,7 +3782,7 @@ const Layout = ({
   setEditingGroup: (group: Group | null) => void
 }) => {
   // ✅ ALL HOOKS MUST BE AT THE TOP (before any returns)
-  const { addGroup, updateGroup, addCompany, updateCompany, loading, posts, groups, selectedCompanyId, setSelectedGroupId, addPost, updatePost, deletePost, selectedGroupId: contextSelectedGroupId, companies, isDarkMode, isNavExpanded } = useApp()
+  const { addGroup, updateGroup, addCompany, updateCompany, loading, posts, groups, selectedCompanyId, setSelectedGroupId, addPost, updatePost, deletePost, selectedGroupId: contextSelectedGroupId, companies: _companies, isDarkMode, isNavExpanded } = useApp()
   const location = useLocation()
   const [showAddGroup, setShowAddGroup] = useState(false)
   const [showAddCompany, setShowAddCompany] = useState(false)
@@ -3952,8 +3865,8 @@ const Layout = ({
   }
 
   const handlePostCreated = async (post: Post) => {
-    // Extract only the fields needed for addPost (omit id, created_at, company, group, updated_at)
-    const { id, created_at, company, group, updated_at, ...postData } = post
+    // Extract only the fields needed for addPost (omit id, created_at, company, group)
+    const { id, created_at, company, group, ...postData } = post
     const newPost = await addPost(postData)
     // Note: toast is already shown in addPost function
     return newPost
@@ -4007,10 +3920,7 @@ const Layout = ({
                 setPendingGroupId={setPendingGroupId}
                 showComposeDrawer={showComposeDrawer}
               />} />
-              <Route path="/groups" element={<GroupsPage onEditGroup={(group) => {
-                  setEditingGroup(group)
-                  setShowEditGroupModal(true)
-              }} />} />
+              <Route path="/groups" element={<GroupsPage />} />
               <Route path="/companies" element={<CompaniesPage />} />
           </Routes>
         </main>
@@ -4057,7 +3967,6 @@ const Layout = ({
             setEditingPost(null)
           }}
           onPostCreated={handlePostCreated}
-          companies={companies}
           groups={groups}
           selectedCompanyId={selectedCompanyId}
           selectedGroupId={contextSelectedGroupId}

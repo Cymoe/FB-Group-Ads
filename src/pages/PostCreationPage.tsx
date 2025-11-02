@@ -16,10 +16,8 @@ interface PostCreationPageProps {
 
 export const PostCreationPage: React.FC<PostCreationPageProps> = ({
   companies,
-  groups,
   selectedCompanyId,
   selectedGroupId,
-  onPostCreated,
   setPendingAIContent
 }) => {
   const navigate = useNavigate()
@@ -68,7 +66,6 @@ export const PostCreationPage: React.FC<PostCreationPageProps> = ({
     
     try {
       const companyName = company?.name || 'Your Company'
-      let finalPrompt = template.prompt.replace('{company}', companyName)
       
       // Simulate AI generation delay
       await new Promise(resolve => setTimeout(resolve, 2000))
