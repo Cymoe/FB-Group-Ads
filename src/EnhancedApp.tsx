@@ -2018,60 +2018,56 @@ const LeftNavigation = ({ onAddCompany, onToggleSidebar }: { onAddCompany: () =>
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Top Section - User Avatar */}
-      <div className={`flex flex-col ${isHovered ? 'items-start px-4' : 'items-center'} py-4 border-b`} style={{ borderColor: '#1A1A1A' }}>
-        {isAuthenticated && (
-          <div className="relative w-full" ref={userMenuRef}>
-            <button
-              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-              className={`${isHovered ? 'w-full px-3 justify-start gap-3' : 'w-10 mx-auto justify-center'} h-10 rounded-full flex items-center transition-all hover:ring-2 ring-[#336699] mb-2`}
-              style={{ 
-                backgroundColor: '#336699',
-              }}
-              title={isHovered ? undefined : (user?.name || 'User')}
-            >
-              <span className="text-white font-semibold text-sm flex-shrink-0">
-                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+      {/* Top Section - Company Selector */}
+      <div className={`flex flex-col ${isHovered ? 'items-start px-4' : 'items-center'} py-4 border-b gap-2`} style={{ borderColor: '#1A1A1A' }}>
+        {/* Company Selector Icon */}
+        <div className="relative w-full" ref={companySelectorRef}>
+          <button
+            onClick={() => {
+              setIsCompanySelectorOpen(!isCompanySelectorOpen)
+            }}
+            className={`${isHovered ? 'w-full px-3 justify-start gap-3' : 'w-10 mx-auto justify-center'} h-10 rounded-lg flex items-center transition-all hover:bg-white/10`}
+            style={{ 
+              color: '#888888',
+              backgroundColor: selectedCompanyId ? 'rgba(51, 102, 153, 0.2)' : 'transparent'
+            }}
+            title={isHovered ? undefined : 'Select Company'}
+          >
+            <Building size={20} className="flex-shrink-0" />
+            {isHovered && (
+              <span className="text-sm text-white/70 truncate">
+                {selectedCompanyId ? companies.find(c => c.id === selectedCompanyId)?.name || 'Select Company' : 'Select Company'}
               </span>
-              {isHovered && (
-                <span className="text-white text-sm font-medium truncate">
-                  {user?.name || 'User'}
-                </span>
-              )}
-            </button>
-
-            {/* User Dropdown Menu */}
-            {isUserMenuOpen && (
-              <div 
-                className="absolute left-full top-0 ml-2 w-56 rounded shadow-2xl z-[110]"
-                style={{ 
-                  backgroundColor: '#1E1E1E',
-                  border: '1px solid #333333'
-                }}
-              >
-                <div className="p-3 border-b" style={{ borderColor: '#333333' }}>
-                  <p className="text-sm font-medium truncate text-white/90">
-                    {user?.name || 'User'}
-                  </p>
-                  <p className="text-xs truncate text-white/60">
-                    {user?.email}
-                  </p>
-                </div>
-                <div className="py-1">
-            <button
-              onClick={() => {
-                      handleLogout()
-                      setIsHovered(false)
-              }}
-                    className="w-full text-left px-4 py-2 text-sm transition-colors text-red-500 hover:bg-red-500/10"
-            >
-                    Sign Out
-            </button>
-                </div>
-              </div>
             )}
-          </div>
-        )}
+          </button>
+
+          {/* Company Selector Dropdown */}
+          {isCompanySelectorOpen && (
+            <div 
+              className="absolute left-full top-0 ml-2 w-64 rounded shadow-2xl z-[110]"
+            style={{ 
+                backgroundColor: '#1E1E1E',
+                border: '1px solid #333333'
+              }}
+            >
+              <CompanySelector
+                companies={companies}
+                selectedCompanyId={selectedCompanyId}
+                onSelectCompany={(id) => {
+                  setSelectedCompanyId(id)
+                  setIsCompanySelectorOpen(false)
+                  setIsHovered(false)
+                }}
+                onAddCompany={() => {
+                  onAddCompany()
+                  setIsCompanySelectorOpen(false)
+                  setIsHovered(false)
+                }}
+                isDarkMode={true}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Sidebar Toggle for Mobile */}
         {onToggleSidebar && (
@@ -2087,7 +2083,7 @@ const LeftNavigation = ({ onAddCompany, onToggleSidebar }: { onAddCompany: () =>
             )}
           </button>
         )}
-          </div>
+      </div>
           
       {/* Middle Section - Navigation Icons */}
       <div className={`flex-1 flex flex-col ${isHovered ? 'items-stretch px-3' : 'items-center px-0'} py-6 gap-2`}>
@@ -2131,57 +2127,8 @@ const LeftNavigation = ({ onAddCompany, onToggleSidebar }: { onAddCompany: () =>
         })}
       </div>
 
-      {/* Bottom Section - Company Selector & Settings */}
+      {/* Bottom Section - Settings & User Info */}
       <div className={`flex flex-col ${isHovered ? 'items-stretch px-3' : 'items-center px-0'} py-3 border-t gap-2`} style={{ borderColor: '#1A1A1A' }}>
-        {/* Company Selector Icon */}
-        <div className="relative w-full" ref={companySelectorRef}>
-          <button
-            onClick={() => {
-              setIsCompanySelectorOpen(!isCompanySelectorOpen)
-            }}
-            className={`${isHovered ? 'w-full px-3 justify-start gap-3' : 'w-10 mx-auto justify-center'} h-10 rounded-lg flex items-center transition-all hover:bg-white/10`}
-            style={{ 
-              color: '#888888',
-              backgroundColor: selectedCompanyId ? 'rgba(51, 102, 153, 0.2)' : 'transparent'
-            }}
-            title={isHovered ? undefined : 'Select Company'}
-          >
-            <Building size={20} className="flex-shrink-0" />
-            {isHovered && (
-              <span className="text-sm text-white/70 truncate">
-                {selectedCompanyId ? companies.find(c => c.id === selectedCompanyId)?.name || 'Select Company' : 'Select Company'}
-              </span>
-            )}
-          </button>
-
-          {/* Company Selector Dropdown */}
-          {isCompanySelectorOpen && (
-            <div 
-              className="absolute left-full bottom-0 ml-2 w-64 rounded shadow-2xl z-[110]"
-            style={{ 
-                backgroundColor: '#1E1E1E',
-                border: '1px solid #333333'
-              }}
-            >
-              <CompanySelector
-                companies={companies}
-                selectedCompanyId={selectedCompanyId}
-                onSelectCompany={(id) => {
-                  setSelectedCompanyId(id)
-                  setIsCompanySelectorOpen(false)
-                  setIsHovered(false)
-                }}
-                onAddCompany={() => {
-                  onAddCompany()
-                  setIsCompanySelectorOpen(false)
-                  setIsHovered(false)
-                }}
-                isDarkMode={true}
-              />
-            </div>
-          )}
-              </div>
-
         {/* Settings Icon */}
         <button
           onClick={toggleTheme}
@@ -2198,7 +2145,61 @@ const LeftNavigation = ({ onAddCompany, onToggleSidebar }: { onAddCompany: () =>
             </span>
           )}
         </button>
-            </div>
+
+        {/* User Avatar */}
+        {isAuthenticated && (
+          <div className="relative w-full" ref={userMenuRef}>
+            <button
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className={`${isHovered ? 'w-full px-3 justify-start gap-3' : 'w-10 mx-auto justify-center'} h-10 rounded-full flex items-center transition-all hover:ring-2 ring-[#336699]`}
+              style={{ 
+                backgroundColor: '#336699',
+              }}
+              title={isHovered ? undefined : (user?.name || 'User')}
+            >
+              <span className="text-white font-semibold text-sm flex-shrink-0">
+                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+              </span>
+              {isHovered && (
+                <span className="text-white text-sm font-medium truncate">
+                  {user?.name || 'User'}
+                </span>
+              )}
+            </button>
+
+            {/* User Dropdown Menu */}
+            {isUserMenuOpen && (
+              <div 
+                className="absolute left-full bottom-0 ml-2 w-56 rounded shadow-2xl z-[110]"
+                style={{ 
+                  backgroundColor: '#1E1E1E',
+                  border: '1px solid #333333'
+                }}
+              >
+                <div className="p-3 border-b" style={{ borderColor: '#333333' }}>
+                  <p className="text-sm font-medium truncate text-white/90">
+                    {user?.name || 'User'}
+                  </p>
+                  <p className="text-xs truncate text-white/60">
+                    {user?.email}
+                  </p>
+                </div>
+                <div className="py-1">
+            <button
+              onClick={() => {
+                      handleLogout()
+                      setIsHovered(false)
+              }}
+                    className="w-full text-left px-4 py-2 text-sm transition-colors text-red-500 hover:bg-red-500/10"
+            >
+                    Sign Out
+            </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
             </div>
   )
 }
