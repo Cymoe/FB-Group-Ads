@@ -2044,7 +2044,7 @@ const LeftNavigation = ({ onAddCompany, onToggleSidebar }: { onAddCompany: () =>
           {/* Company Selector Dropdown */}
           {isCompanySelectorOpen && (
             <div 
-              className="absolute left-full top-0 ml-2 w-64 rounded shadow-2xl z-[110]"
+              className="absolute right-full top-0 mr-2 w-64 rounded shadow-2xl z-[110]"
             style={{ 
                 backgroundColor: '#1E1E1E',
                 border: '1px solid #333333'
@@ -2170,7 +2170,7 @@ const LeftNavigation = ({ onAddCompany, onToggleSidebar }: { onAddCompany: () =>
             {/* User Dropdown Menu */}
             {isUserMenuOpen && (
               <div 
-                className="absolute left-full bottom-0 ml-2 w-56 rounded shadow-2xl z-[110]"
+                className="absolute right-full bottom-0 mr-2 w-56 rounded shadow-2xl z-[110]"
                 style={{ 
                   backgroundColor: '#1E1E1E',
                   border: '1px solid #333333'
