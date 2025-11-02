@@ -1,6 +1,7 @@
 import React, { useState, useEffect, createContext, useContext } from 'react'
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
-import { MessageSquare, X, Settings, MoreHorizontal, Search, Sun, Moon } from 'lucide-react'
+import { MessageSquare, X, Settings, MoreHorizontal, Search, Sun, Moon, Menu, Home, FileText, Compass, Building, Sparkles, Plus, Pencil } from 'lucide-react'
+import { aiTemplateStructure } from './components/aiTemplates'
 import toast, { Toaster } from 'react-hot-toast'
 import { List } from 'react-window'
 import InlinePostComposer from './components/InlinePostComposer'
@@ -9,9 +10,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
-import { RecentPostsPanel } from './components/RecentPostsPanel'
 import { Dashboard } from './pages/Dashboard'
-import { calculateGroupHealth } from './utils/groupHealth'
 import type { Company, Group, Post, Lead } from './types/database'
 import { API_BASE_URL } from './config/api'
 
@@ -61,6 +60,80 @@ const AppContext = createContext<{
 })
 
 export const useApp = () => useContext(AppContext)
+
+// Enhanced Group Health Function with Real Data
+const getGroupHealthWithRealData = (group: Group, posts: Post[]) => {
+  const groupPosts = posts.filter(p => p.group_id === group.id && p.status === 'posted')
+  const now = new Date()
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  
+  // Count posts this week
+  const postsThisWeek = groupPosts.filter(post => {
+    const postDate = new Date(post.posted_at || post.created_at)
+    return postDate >= oneWeekAgo
+  }).length
+  
+  // Find most recent post
+  const sortedPosts = groupPosts.sort((a, b) => {
+    const dateA = new Date(a.posted_at || a.created_at)
+    const dateB = new Date(b.posted_at || b.created_at)
+    return dateB.getTime() - dateA.getTime()
+  })
+  
+  const lastPost = sortedPosts[0]
+  const daysSinceLastPost = lastPost 
+    ? Math.floor((now.getTime() - new Date(lastPost.posted_at || lastPost.created_at).getTime()) / (24 * 60 * 60 * 1000))
+    : null
+  
+  // Determine health status
+  const recommendedFreq = group.recommended_frequency || 3
+  let status: 'safe' | 'caution' | 'danger' = 'safe'
+  let color = '#10B981' // Green
+  let icon = '✅'
+  let message = 'Healthy posting frequency'
+  let recommendationText = 'Your posting frequency is within recommended limits.'
+  
+  if (postsThisWeek >= recommendedFreq + 2) {
+    status = 'danger'
+    color = '#EF4444' // Red
+    icon = '🚨'
+    message = 'Posting too frequently - risk of spam detection'
+    recommendationText = `You've posted ${postsThisWeek} times this week. Consider reducing frequency to avoid spam detection.`
+  } else if (postsThisWeek >= recommendedFreq) {
+    status = 'caution'
+    color = '#F59E0B' // Yellow
+    icon = '⚠️'
+    message = 'Approaching posting limit'
+    recommendationText = `You've posted ${postsThisWeek} times this week. Consider spacing out future posts.`
+  } else if (daysSinceLastPost && daysSinceLastPost > 7) {
+    status = 'caution'
+    color = '#F59E0B'
+    icon = '⏰'
+    message = 'Haven\'t posted recently'
+    recommendationText = `It's been ${daysSinceLastPost} days since your last post. Consider posting soon to maintain engagement.`
+  }
+  
+  // Calculate next safe posting date
+  let nextSafePostDate: string | null = null
+  if (postsThisWeek >= recommendedFreq) {
+    const nextWeek = new Date(now.getTime() + (7 - now.getDay()) * 24 * 60 * 60 * 1000)
+    nextSafePostDate = nextWeek.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric' 
+    })
+  }
+  
+  return {
+    status,
+    color,
+    icon,
+    message,
+    recommendationText,
+    postsThisWeek,
+    daysSinceLastPost,
+    nextSafePostDate
+  }
+}
 
 // App Provider
 const AppProvider = ({ children }: { children: React.ReactNode }) => {
@@ -132,7 +205,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
             
             // Auto-select the first company if none is selected
             if (companiesArray.length > 0 && !selectedCompanyId) {
-              setSelectedCompanyId(companiesArray[0].id)
+                  setSelectedCompanyId(companiesArray[0].id)
               console.log('🎯 Auto-selected first company:', companiesArray[0].name)
             }
           }
@@ -440,15 +513,19 @@ const PostsPage = ({
   setShowEditGroupModal, 
   editingGroup, 
   setEditingGroup,
-  isRecentPostsCollapsed,
-  setIsRecentPostsCollapsed
+  setPendingAIContent,
+  setPendingCompanyId,
+  setPendingGroupId,
+  showComposeDrawer
 }: {
   showEditGroupModal: boolean
   setShowEditGroupModal: (show: boolean) => void
   editingGroup: Group | null
   setEditingGroup: (group: Group | null) => void
-  isRecentPostsCollapsed: boolean
-  setIsRecentPostsCollapsed: (collapsed: boolean) => void
+  setPendingAIContent?: (content: string | null) => void
+  setPendingCompanyId?: (id: string | null) => void
+  setPendingGroupId?: (id: string | null) => void
+  showComposeDrawer?: boolean
 }) => {
   const { 
     companies, 
@@ -468,6 +545,13 @@ const PostsPage = ({
   const [showPostMenu, setShowPostMenu] = useState<string | null>(null)
   const [activeStatusTab, setActiveStatusTab] = useState('draft')
   const [postToDelete, setPostToDelete] = useState<Post | null>(null)
+
+  // AI Generation States
+  const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null)
+  const [selectedServiceType, setSelectedServiceType] = useState<string | null>(null)
+  const [selectedGoal, setSelectedGoal] = useState<string | null>(null)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false)
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -565,15 +649,18 @@ const postTypeIcons = {
       {/* Main Content Area */}
       <div className="flex-1">
       <div className="px-6 py-6">
-        <div className={`mx-auto transition-all duration-300 ${isRecentPostsCollapsed ? 'max-w-7xl' : 'max-w-6xl'}`}>
+        <div className={`mx-auto transition-all duration-300 ${
+          showComposeDrawer ? 'max-w-4xl' : 'max-w-6xl'
+        }`}>
           {/* Page Header - Only show when a group is selected */}
           {selectedGroupId ? (
+            <>
             <div className="mb-6">
               {/* Health Status Card with Group Name */}
               {(() => {
                 const selectedGroup = groups.find(g => g.id === selectedGroupId)
                 if (!selectedGroup) return null
-                const health = calculateGroupHealth(selectedGroup)
+                const health = getGroupHealthWithRealData(selectedGroup, posts)
                 
                 return (
                   <div 
@@ -675,12 +762,374 @@ const postTypeIcons = {
   )
               })()}
         </div>
+
+            {/* AI Post Generator - Directly under group info */}
+            <div className="mb-6 max-w-2xl">
+            {/* STEP 1: Select Industry - TWO COLUMN LAYOUT */}
+            {!selectedIndustry && (
+              <div className="grid grid-cols-2 gap-3">
+                {Object.entries(aiTemplateStructure).map(([key, industry]: [string, any]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedIndustry(key)}
+                    className="p-4 rounded-lg text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    style={{
+                      backgroundColor: 'var(--input-bg)',
+                      border: '1px solid var(--border-neutral)'
+                    }}
+                  >
+                    <div className="text-2xl mb-2">{industry.icon}</div>
+                    <h4 className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                      {industry.name}
+                    </h4>
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      {industry.description}
+                    </p>
+                  </button>
+                ))}
+      </div>
+          )}
+          
+            {/* STEP 2: Select Service Type */}
+            {selectedIndustry && !selectedServiceType && (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    Select Service Type
+                  </h3>
+                    <button
+                    onClick={() => setSelectedIndustry(null)}
+                    className="text-sm px-4 py-2 rounded-lg transition-colors"
+                      style={{
+                      backgroundColor: 'transparent',
+                      border: '1px solid var(--border-neutral)',
+                      color: 'var(--text-secondary)'
+                    }}
+                  >
+                    ← Back
+                  </button>
+                </div>
+                <div className="mb-3 p-2 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {(aiTemplateStructure as any)[selectedIndustry].icon} {(aiTemplateStructure as any)[selectedIndustry].name}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[600px] overflow-y-auto">
+                  {Object.entries((aiTemplateStructure as any)[selectedIndustry].serviceTypes || {}).map(([key, serviceType]: [string, any]) => (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedServiceType(key)}
+                      className="p-3 rounded-lg text-left transition-all hover:border-[#EAB308]"
+                          style={{
+                        backgroundColor: 'var(--input-bg)',
+                        border: '1px solid var(--border-neutral)'
+                          }}
+                        >
+                      <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                        {serviceType.name}
+              </div>
+                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {serviceType.description}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* STEP 3: Choose Your Goal */}
+            {selectedIndustry && selectedServiceType && !selectedGoal && (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    Choose Your Goal
+                  </h3>
+                  <button
+                    onClick={() => setSelectedServiceType(null)}
+                    className="text-sm px-4 py-2 rounded-lg transition-colors"
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: '1px solid var(--border-neutral)',
+                      color: 'var(--text-secondary)'
+                    }}
+                  >
+                    ← Back
+                  </button>
+                </div>
+                <div className="mb-3 p-2 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {(aiTemplateStructure as any)[selectedIndustry].name} → {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].name}
+                  </span>
+              </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {Object.entries((aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals).map(([key, goal]: [string, any]) => (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedGoal(key)}
+                      className="p-4 rounded-lg text-left transition-all hover:border-[#EAB308]"
+                    style={{ 
+                        backgroundColor: 'var(--input-bg)',
+                      border: '1px solid var(--border-neutral)'
+                      }}
+                    >
+                      <div className="text-xl mb-2">{goal.icon}</div>
+                      <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        {goal.name}
+                      </div>
+                                  </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* STEP 4: Select Template */}
+            {selectedIndustry && selectedServiceType && selectedGoal && (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    Select Template
+                  </h3>
+                                      <button
+                    onClick={() => {
+                      setSelectedGoal(null)
+                      setSelectedTemplateId(null)
+                    }}
+                    className="text-sm px-4 py-2 rounded-lg transition-colors"
+                                        style={{ 
+                      backgroundColor: 'transparent',
+                      border: '1px solid var(--border-neutral)',
+                      color: 'var(--text-secondary)'
+                    }}
+                  >
+                    ← Back
+                                      </button>
+                                    </div>
+                <div className="mb-3 p-2 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {(aiTemplateStructure as any)[selectedIndustry].name}
+                                    </span>
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>→</span>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].name}
+                                    </span>
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>→</span>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[selectedGoal].name}
+                  </span>
+                              </div>
+
+                {/* Loading Indicator */}
+                {isGeneratingAI && (
+                  <div className="mb-4 p-4 rounded-lg flex items-center justify-center gap-3" style={{
+                    backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                    border: '1px solid rgba(234, 179, 8, 0.3)'
+                  }}>
+                    <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#EAB308' }} />
+                    <span className="text-sm font-medium" style={{ color: '#EAB308' }}>
+                      Generating your post...
+                                      </span>
+                  </div>
+                )}
+
+                {/* Two-Column Layout: Templates List + Detail Panel */}
+                {!isGeneratingAI && (
+                  <div className="flex flex-col lg:flex-row gap-4">
+                    {/* LEFT: Template List (60%) */}
+                    <div className="flex-1 lg:flex-[6]">
+                      <div className="grid grid-cols-1 gap-2 max-h-[500px] overflow-y-auto">
+                        {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[selectedGoal].templates.map((template: any) => {
+                          const isSelected = selectedTemplateId === template.id
+                                        return (
+                                            <button 
+                              key={template.id}
+                              onMouseEnter={() => setSelectedTemplateId(template.id)}
+                              onClick={() => {
+                                const company = companies.find(c => c.id === selectedCompanyId)
+                                const companyName = company?.name || 'Your Company'
+                                
+                                setIsGeneratingAI(true)
+                                
+                                setTimeout(async () => {
+                                  // Mock content - replace with actual AI API call
+                                  const mockContent = `🏠 ${companyName} - Premium Service Alert!
+
+Experience top-quality service that exceeds your expectations.
+
+✨ Why choose us?
+• Professional & certified team
+• Fast, reliable service
+• Customer satisfaction guaranteed
+
+Call us today for a free quote!
+
+#HomeServices #LocalBusiness #QualityService`
+                                  
+                                  if (setPendingAIContent) {
+                                    setPendingAIContent(mockContent)
+                                  }
+                                  if (setPendingCompanyId && selectedCompanyId) {
+                                    setPendingCompanyId(selectedCompanyId)
+                                  }
+                                  if (setPendingGroupId && selectedGroupId) {
+                                    setPendingGroupId(selectedGroupId)
+                                  }
+                                  
+                                  toast.success('✨ Post generated! Opening drawer for customization...')
+                                  setIsGeneratingAI(false)
+                                  
+                                  // Clear selections after generation
+                                  setSelectedIndustry(null)
+                                  setSelectedServiceType(null)
+                                  setSelectedGoal(null)
+                                  setSelectedTemplateId(null)
+                                }, 2000)
+                              }}
+                              disabled={isGeneratingAI}
+                              className="p-3 rounded-lg text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed h-20 flex flex-col justify-between"
+                              style={{
+                                backgroundColor: isSelected ? 'rgba(234, 179, 8, 0.1)' : 'var(--input-bg)',
+                                borderWidth: '1px',
+                                borderStyle: 'solid',
+                                borderColor: isSelected ? '#EAB308' : 'var(--border-neutral)',
+                                boxShadow: isSelected ? '0 0 0 1px #EAB308, 0 2px 8px rgba(234, 179, 8, 0.2)' : 'none'
+                              }}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-base">{template.icon}</span>
+                                <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                  {template.name}
+                                </span>
+                              </div>
+                              <p className="text-xs line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
+                                {template.prompt.split('.')[0]}...
+                              </p>
+                                          </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* RIGHT: Template Detail Panel (40%) */}
+                    <div className="flex-1 lg:flex-[4]">
+                      {selectedTemplateId ? (
+                        (() => {
+                          const template = (aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[selectedGoal].templates.find((t: any) => t.id === selectedTemplateId)
+                          if (!template) return null
+                          
+                          const company = companies.find(c => c.id === selectedCompanyId)
+                          const companyName = company?.name || 'Your Company'
+                          const samplePrompt = template.prompt.replace('{company}', companyName)
+                          
+                                      return (
+                            <div className="sticky top-0 p-4 rounded-lg" style={{
+                              backgroundColor: 'var(--input-bg)',
+                              border: '2px solid #EAB308'
+                            }}>
+                              {/* Template Header */}
+                              <div className="flex items-start gap-2.5 mb-3 pb-3" style={{ borderBottom: '1px solid var(--border-neutral)' }}>
+                                <span className="text-2xl">{template.icon}</span>
+                                <div className="flex-1">
+                                  <h3 className="text-sm font-bold mb-0.5" style={{ color: 'var(--text-primary)' }}>
+                                    {template.name}
+                                  </h3>
+                                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                    Click to generate your post
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Template Preview */}
+                              <div className="mb-3">
+                                <div className="text-xs font-semibold mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                                  Template Preview
+                                </div>
+                                <div className="p-2.5 rounded-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-neutral)' }}>
+                                  <p className="text-xs whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                                    {samplePrompt}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Action Button */}
+                                          <button
+                                onClick={() => {
+                                  const company = companies.find(c => c.id === selectedCompanyId)
+                                  const companyName = company?.name || 'Your Company'
+                                  
+                                  setIsGeneratingAI(true)
+                                  
+                                  setTimeout(async () => {
+                                    const mockContent = `🏠 ${companyName} - Premium Service Alert!
+
+Experience top-quality service that exceeds your expectations.
+
+✨ Why choose us?
+• Professional & certified team
+• Fast, reliable service
+• Customer satisfaction guaranteed
+
+Call us today for a free quote!
+
+#HomeServices #LocalBusiness #QualityService`
+                                    
+                                    if (setPendingAIContent) {
+                                      setPendingAIContent(mockContent)
+                                    }
+                                    if (setPendingCompanyId && selectedCompanyId) {
+                                      setPendingCompanyId(selectedCompanyId)
+                                    }
+                                    if (setPendingGroupId && selectedGroupId) {
+                                      setPendingGroupId(selectedGroupId)
+                                    }
+                                    
+                                    toast.success('✨ Post generated! Opening drawer for customization...')
+                                    setIsGeneratingAI(false)
+                                    
+                                    // Clear selections after generation
+                                    setSelectedIndustry(null)
+                                    setSelectedServiceType(null)
+                                    setSelectedGoal(null)
+                                    setSelectedTemplateId(null)
+                                  }, 2000)
+                                }}
+                                disabled={isGeneratingAI || !selectedCompanyId || !selectedGroupId}
+                                className="w-full h-10 rounded-lg font-medium text-sm transition-all disabled:opacity-50 hover:opacity-90"
+                                            style={{
+                                  backgroundColor: '#EAB308',
+                                  color: '#000000'
+                                            }}
+                                          >
+                                Generate Post
+                                          </button>
+                            </div>
+                          )
+                        })()
+                      ) : (
+                        <div className="p-4 rounded-lg border-2 border-dashed flex items-center justify-center h-full" style={{
+                          backgroundColor: 'var(--input-bg)',
+                          borderColor: 'var(--border-neutral)'
+                        }}>
+                          <div className="text-center">
+                            <span className="text-3xl mb-2 block">👈</span>
+                            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                              Hover over a template to see details
+                            </p>
+                              </div>
+                            </div>
+                      )}
+                          </div>
+                        </div>
+                )}
+              </>
+            )}
+                      </div>
+            </>
           ) : (
             <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 200px)' }}>
               <div className="text-center max-w-md">
                 <div className="w-16 h-16 bg-[#336699]/20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <MessageSquare size={32} className="text-[#336699]" />
-          </div>
+                  </div>
                 <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                   Select a Facebook Group
                     </h2>
@@ -689,32 +1138,10 @@ const postTypeIcons = {
               </p>
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}>
                   <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>👈 Start by selecting a group</span>
-        </div>
-        </div>
+                </div>
+            </div>
       </div>
           )}
-          
-          {/* Only show post content when a group is selected */}
-          {selectedGroupId && (
-            <>
-        
-          {/* Inline Post Composer */}
-          <div className="mb-6">
-            <InlinePostComposer
-              companies={companies}
-              groups={groups}
-              selectedCompanyId={selectedCompanyId}
-              selectedGroupId={selectedGroupId}
-              editingPost={editingPost}
-              onPostCreated={addPost}
-              onPostUpdated={updatePost}
-              onCancelEdit={() => setEditingPost(null)}
-              isDarkMode={isDarkMode}
-              isRecentPostsCollapsed={isRecentPostsCollapsed}
-            />
-                  </div>
-          
-          {/* Edit mode now handled by InlinePostComposer above */}
           
           {/* Edit Group Modal */}
           {showEditGroupModal && editingGroup && (
@@ -731,284 +1158,11 @@ const postTypeIcons = {
               }}
             />
           )}
-          
-          {/* Debug info - moved to useEffect */}
-          
-            
-                {/* Status Tabs - Minimal Style */}
-          <div className="mb-6">
-            <div className="border-b" style={{ borderColor: 'var(--border-neutral)' }}>
-              <div className="flex gap-6">
-                {[
-                  { key: 'draft', label: 'Drafts', count: postsByStatus.draft.length },
-                  { key: 'ready', label: 'Ready', count: postsByStatus.ready.length },
-                  { key: 'pending', label: 'Pending Approval', count: postsByStatus.pending.length },
-                  { key: 'posted', label: 'Posted', count: postsByStatus.posted.length }
-                  ].map(({ key, label, count }) => (
-                    <button
-                      key={key}
-                      data-tab={key}
-                      onClick={() => setActiveStatusTab(key)}
-                      className="relative px-1 pb-3 text-sm font-medium transition-colors"
-                      style={{
-                        color: activeStatusTab === key ? 'var(--text-primary)' : 'var(--text-secondary)'
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                      <span>{label}</span>
-                        <span 
-                          className="px-1.5 py-0.5 rounded text-xs font-medium"
-                          style={{
-                            backgroundColor: activeStatusTab === key ? 'var(--steel-blue)' : 'var(--concrete-gray)',
-                            color: activeStatusTab === key ? 'white' : 'var(--text-secondary)'
-                          }}
-                        >
-                        {count}
-                      </span>
-              </div>
-                      {/* Active indicator */}
-                      {activeStatusTab === key && (
-                        <div 
-                          className="absolute bottom-0 left-0 right-0 h-0.5"
-                          style={{ backgroundColor: 'var(--steel-blue)' }}
-                        />
-                      )}
-                    </button>
-                  ))}
-              </div>
-            </div>
-            </div>
-
-                
-            {/* Posts List */}
-            <div className="space-y-3">
-              {postsByStatus[activeStatusTab as keyof typeof postsByStatus].length === 0 ? (
-                <div className="rounded p-12 text-center" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}>
-                  <div className="w-16 h-16 bg-[#336699]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    {activeStatusTab === 'draft' && <MessageSquare size={32} className="text-[#336699]" />}
-                    {activeStatusTab === 'ready' && <span className="text-3xl">✅</span>}
-                    {activeStatusTab === 'pending' && <span className="text-3xl">⏳</span>}
-                    {activeStatusTab === 'posted' && <span className="text-3xl">🎉</span>}
-                  </div>
-                  <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                    No {activeStatusTab} posts yet
-                  </h3>
-                  <p className="text-sm mb-6 max-w-sm mx-auto" style={{ color: 'var(--text-secondary)' }}>
-                    {activeStatusTab === 'draft' && 'Start creating content for your Facebook groups using the composer above'}
-                    {activeStatusTab === 'ready' && 'Mark draft posts as "ready" when they\'re polished and ready to publish'}
-                    {activeStatusTab === 'pending' && 'Posts awaiting approval will appear here before going live'}
-                    {activeStatusTab === 'posted' && 'Successfully posted content will show up here for tracking'}
-                  </p>
-                  {activeStatusTab === 'draft' && (
-                    <p className="text-xs px-4 py-2 rounded inline-block" style={{ backgroundColor: 'var(--concrete-gray)', color: 'var(--text-secondary)' }}>
-                      💡 Tip: Use the composer above to create your first post
-                    </p>
-                  )}
-              </div>
-                  ) : (
-                <>
-                {postsByStatus[activeStatusTab as keyof typeof postsByStatus].map(post => (
-                  <div key={post.id} id={`post-${post.id}`} className="rounded overflow-hidden transition-colors" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}>
-                      <div className="p-4">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="flex items-center gap-2 px-2 py-1 rounded" style={{ backgroundColor: 'var(--concrete-gray)' }}>
-                            <span className="text-sm">{postTypeIcons[post.post_type as keyof typeof postTypeIcons]}</span>
-                            <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
-                              {post.post_type.replace(/_/g, ' ')}
-                            </span>
-              </div>
-                          <div className="flex-1">
-                            <h3 className="font-medium" style={{ color: 'var(--text-primary)' }}>{post.title}</h3>
-                            {/* Company Label */}
-                            {(() => {
-                              const company = companies.find(c => c.id === post.company_id)
-                              return company && (
-                                <div className="text-[9px] uppercase tracking-[0.5px] mt-0.5" style={{ color: 'var(--text-disabled)' }}>
-                                  {company.name}
-                                </div>
-                              )
-                            })()}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wide ${
-                              post.status === 'draft' ? 'bg-[#9E9E9E]/20 text-[#9E9E9E]' :
-                              post.status === 'ready_to_post' ? 'bg-[#336699]/20 text-[#336699]' :
-                              post.status === 'pending_approval' ? 'bg-[#F9D71C]/20 text-[#F9D71C]' :
-                              post.status === 'posted' ? 'bg-[#388E3C]/20 text-[#388E3C]' :
-                              'bg-[#9C27B0]/20 text-[#9C27B0]'
-                      }`}>
-                        {post.status.replace('_', ' ')}
-                      </span>
-                            <div className="relative">
-              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setShowPostMenu(showPostMenu === post.id ? null : post.id)
-                                }}
-                                className="p-1.5 rounded text-xs font-medium transition-colors"
-                                style={{
-                                  backgroundColor: isDarkMode ? '#333333' : '#F3F4F6',
-                                  border: isDarkMode ? '1px solid #555555' : '1px solid #D1D5DB',
-                                  color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = isDarkMode ? '#2A2A2A' : '#E5E7EB'
-                                  e.currentTarget.style.color = isDarkMode ? 'rgba(255,255,255,1)' : 'rgba(0,0,0,1)'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = isDarkMode ? '#333333' : '#F3F4F6'
-                                  e.currentTarget.style.color = isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)'
-                                }}
-                                title="Post options"
-                              >
-                                <MoreHorizontal size={14} />
-              </button>
-                              
-                              {showPostMenu === post.id && (
-                                <div 
-                                  className="absolute right-0 top-full mt-1 rounded shadow-2xl z-[100] min-w-[120px]"
-                                  style={{ 
-                                    backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-                                    border: isDarkMode ? '1px solid #333333' : '1px solid #E5E7EB'
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-              <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setEditingPost(post)
-                                      setShowPostMenu(null)
-                                    }}
-                                    className="w-full px-3 py-2 text-left text-sm transition-colors"
-                                    style={{ 
-                                      color: isDarkMode ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-                                      e.currentTarget.style.color = isDarkMode ? 'rgba(255,255,255,1)' : 'rgba(0,0,0,1)'
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.currentTarget.style.backgroundColor = 'transparent'
-                                      e.currentTarget.style.color = isDarkMode ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)'
-                                    }}
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setPostToDelete(post)
-                                      setShowPostMenu(null)
-                                    }}
-                                    className="w-full px-3 py-2 text-left text-sm text-red-500 hover:text-red-400 transition-colors"
-                                    onMouseEnter={(e) => {
-                                      e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.currentTarget.style.backgroundColor = 'transparent'
-                                    }}
-                                  >
-                                    Delete
-              </button>
-            </div>
-                              )}
-              </div>
-                        </div>
-                      </div>
-
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap mb-4" style={{ color: 'var(--text-secondary)' }}>
-                          {post.content}
-                        </p>
-                        
-                  <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-disabled)' }}>
-                            {/* Engagement metrics removed - would need real Facebook API data */}
-                    </div>
-
-                          <div className="flex items-center gap-2">
-                    <>
-                    {(() => {
-                      if (post.status === 'draft') {
-                        const canAdvance = post.title?.trim() && post.content?.trim() && post.group_id
-                        if (canAdvance) {
-                          return (
-                                    <button 
-                                      onClick={() => updatePostStatus(post.id, 'ready_to_post')} 
-                                      className="px-2 py-1 rounded text-xs font-medium bg-[#336699] hover:bg-[#336699]/80 text-white transition-colors border border-[#555555]"
-                                    >
-                                      ✓ Mark Ready
-                                    </button>
-                          )
-                        } else {
-                          const missing: string[] = []
-                          if (!post.title?.trim()) missing.push('title')
-                          if (!post.content?.trim()) missing.push('content')
-                          if (!post.group_id) missing.push('group')
-                          return (
-                                    <span className="px-2 py-1 rounded text-xs bg-[#F9D71C]/20 text-[#F9D71C] font-medium">
-                                      ⚠ Needs: {missing.join(', ')}
-                                    </span>
-                          )
-                        }
-                      }
-                      if (post.status === 'ready_to_post') {
-                          return (
-                                  <button 
-                                    onClick={() => updatePostStatus(post.id, 'pending_approval')} 
-                                    className="px-2 py-1 rounded text-xs font-medium bg-[#F9D71C] hover:bg-[#F9D71C]/80 text-black transition-colors border border-[#555555]"
-                                  >
-                                    ⏳ Submit for Approval
-                                  </button>
-                        )
-                      }
-                      if (post.status === 'pending_approval') {
-                          return (
-                                  <button 
-                                    onClick={() => updatePostStatus(post.id, 'posted')} 
-                                    className="px-2 py-1 rounded text-xs font-medium bg-[#388E3C] hover:bg-[#388E3C]/80 text-white transition-colors border border-[#555555]"
-                                  >
-                                    ✓ Mark Posted
-                                  </button>
-                        )
-                      }
-                      if (post.status === 'posted') {
-                        return (
-                                  <span className="px-2 py-1 rounded text-xs bg-[#388E3C]/20 text-[#388E3C] font-medium">
-                                    ✓ Posted
-                                  </span>
-                        )
-                      }
-                      return null
-                    })()}
-                    </>
-                  </div>
-                </div>
-          </div>
-              </div>
-              ))}
-              </>
-            )}
-                </div>
-          </>
-          )}
           </div>
           </div>
         </div>
     </div>
 
-    {/* Recent Posts Sidebar - Only on Posts Page */}
-    <RecentPostsPanel
-      posts={posts}
-      groups={groups}
-      companies={companies}
-      selectedCompanyId={selectedCompanyId}
-      isCollapsed={isRecentPostsCollapsed}
-      onToggleCollapse={setIsRecentPostsCollapsed}
-      onSelectGroup={(groupId) => {
-        console.log('🎯 Selecting group from recent posts:', groupId)
-        setSelectedGroupId(groupId)
-      }}
-    />
 
     {/* Delete Confirmation Modal */}
     {postToDelete && (
@@ -1361,15 +1515,15 @@ const AddCompanyModal = ({ onSave, onCancel }: {
       <div className="rounded p-4 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto shadow-2xl" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-neutral)' }}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[11px] font-medium uppercase tracking-[0.5px]" style={{ color: 'var(--text-primary)' }}>Add Company</h2>
-              <button
+          <button
             onClick={onCancel}
             className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-white/5"
             style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-secondary)' }}
-              >
+          >
             <X size={14} />
-              </button>
-              </div>
-              
+          </button>
+        </div>
+
         <div className="space-y-3">
           <div>
             <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
@@ -1383,7 +1537,7 @@ const AddCompanyModal = ({ onSave, onCancel }: {
               style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
               placeholder="Enter company name"
             />
-                  </div>
+          </div>
 
           <div>
             <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
@@ -1397,7 +1551,7 @@ const AddCompanyModal = ({ onSave, onCancel }: {
               style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
               placeholder="e.g., Plumbing, Painting, HVAC"
             />
-                  </div>
+          </div>
 
           <div>
             <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
@@ -1411,9 +1565,9 @@ const AddCompanyModal = ({ onSave, onCancel }: {
               style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
               placeholder="e.g., Midland, TX"
             />
-                  </div>
+          </div>
 
-                  <div>
+          <div>
             <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
               Description
             </label>
@@ -1425,27 +1579,27 @@ const AddCompanyModal = ({ onSave, onCancel }: {
               placeholder="Enter company description"
               rows={3}
             />
-                    </div>
+          </div>
                     </div>
 
         <div className="flex items-center justify-end gap-3 pt-6">
-                    <button
-            onClick={onCancel}
+            <button
+              onClick={onCancel}
             className="h-10 px-4 rounded text-sm font-medium uppercase tracking-[0.5px] transition-colors hover:bg-white/5"
             style={{ border: '1px solid var(--border-neutral)', color: 'var(--text-secondary)' }}
-              >
-            Cancel
-                    </button>
-              <button
+            >
+              Cancel
+            </button>
+            <button
             onClick={handleSave}
-            disabled={!formData.name.trim()}
+              disabled={!formData.name.trim()}
             className="h-10 px-4 bg-[#336699] text-white rounded text-sm font-medium uppercase tracking-[0.5px] hover:bg-[#336699]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-            Add Company
-              </button>
-            </div>
-              </div>
-              </div>
+            >
+              Add Company
+            </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1475,8 +1629,8 @@ const EditGroupModal = ({ group, onSave, onCancel }: {
 
   const handleDelete = async () => {
     if (confirm(`Are you sure you want to delete "${group.name}"? This action cannot be undone.`)) {
-      await deleteGroup(group.id)
-      onCancel()
+    await deleteGroup(group.id)
+    onCancel()
     }
   }
 
@@ -1537,13 +1691,13 @@ const EditGroupModal = ({ group, onSave, onCancel }: {
 
               <div>
                 <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                  Category
-                </label>
-          <select
-                  value={formData.category}
-                  onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                    Category
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
                   className="w-full h-10 px-3 rounded-lg text-sm focus:outline-none focus:border-[#336699] focus:ring-1 focus:ring-[#336699]/40 transition-all"
-                  style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+                    style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
                 >
                   <option value="">Select category...</option>
                   <option value="General">General</option>
@@ -1553,10 +1707,10 @@ const EditGroupModal = ({ group, onSave, onCancel }: {
                   <option value="Jobs">Jobs</option>
                   <option value="Work">Work</option>
                   <option value="Parenting">Parenting</option>
-          </select>
-        </div>
+                  </select>
+                </div>
 
-        <div>
+                <div>
                 <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                   Tier
                 </label>
@@ -1570,23 +1724,23 @@ const EditGroupModal = ({ group, onSave, onCancel }: {
                   <option value="medium">Medium</option>
                   <option value="high">High</option>
                 </select>
-                      </div>
+              </div>
 
-              <div>
+                <div>
                 <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                   Audience Size
-                </label>
-          <input
+                  </label>
+                  <input
                   type="number"
                   value={formData.audience_size}
                   onChange={(e) => setFormData(prev => ({ ...prev, audience_size: parseInt(e.target.value) || 0 }))}
                   className="w-full h-10 px-3 rounded-lg text-sm focus:outline-none focus:border-[#336699] focus:ring-1 focus:ring-[#336699]/40 transition-all"
-                  style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+                    style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
                   placeholder="Enter audience size"
-          />
-        </div>
-        
-              <div>
+                  />
+                </div>
+
+                <div>
                 <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                   Status
                 </label>
@@ -1599,7 +1753,7 @@ const EditGroupModal = ({ group, onSave, onCancel }: {
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
-                    </div>
+              </div>
                   </div>
                 </div>
 
@@ -1673,12 +1827,20 @@ const Sidebar = ({ onAddGroup, onEditGroup: _onEditGroup }: {
     .filter(group => group.name.toLowerCase().includes(searchQuery.toLowerCase()))
     .filter(group => {
       if (healthFilter === 'all') return true
-      const health = calculateGroupHealth(group)
+      const health = getGroupHealthWithRealData(group, posts)
       return health.status === healthFilter
     })
 
   return (
-    <aside className="w-80 border-r flex flex-col overflow-hidden fixed left-0 top-16 bottom-0 z-10" style={{ backgroundColor: 'var(--sidebar-bg)', borderColor: 'var(--border-neutral)', overscrollBehavior: 'contain' }}>
+    <aside 
+      className={`w-80 border-r flex flex-col overflow-hidden fixed left-16 top-0 bottom-0 z-50 transform transition-transform duration-300 ease-out`}
+      style={{ 
+        backgroundColor: '#111111', 
+        borderColor: '#1A1A1A', 
+        boxShadow: '2px 0 8px rgba(0, 0, 0, 0.5)',
+        overscrollBehavior: 'contain' 
+      }}
+    >
       {/* Groups Header */}
       <div className="px-3 pt-4 pb-2 border-b flex items-center justify-between flex-shrink-0" style={{ borderColor: 'var(--concrete-gray)' }}>
         <h3 className="text-[11px] font-medium uppercase tracking-[0.5px]" style={{ color: 'var(--sidebar-text)' }}>
@@ -1814,137 +1976,83 @@ const Sidebar = ({ onAddGroup, onEditGroup: _onEditGroup }: {
               const group = filteredGroups[index]
             const isSelected = selectedGroupId === group.id
             const groupPosts = posts.filter(p => p.group_id === group.id)
-            const company = companies.find(c => c.id === group.company_id)
-            const health = calculateGroupHealth(group)
+            const health = getGroupHealthWithRealData(group, posts)
                                   
             return (
-              <div style={style} className="px-1 py-1">
+              <div style={style} className="px-2 py-1">
               <div
                 key={group.id}
                 id={`group-${group.id}`}
                 onClick={() => {
                   setSelectedGroupId(group.id)
-                  // Navigate to posts page if not already there
+                  // Only navigate to /posts if we're not already on /posts
                   if (location.pathname !== '/posts') {
                     navigate('/posts')
+                  } else {
+                    // Scroll to top when already on posts page
+                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+                    document.documentElement.scrollTop = 0
+                    document.body.scrollTop = 0
+                    const mainElement = document.getElementById('main-content')
+                    if (mainElement) {
+                      mainElement.scrollTop = 0
+                    }
                   }
                 }}
                 className={`
-                    group relative px-2 py-2 rounded cursor-pointer transition-all duration-150 border-l-4
+                    group relative p-3 cursor-pointer transition-all duration-200 rounded-lg border
                   ${isSelected 
-                    ? 'bg-[#336699]/12 border-l-[#336699]' 
-                    : 'border-l-transparent hover:bg-[#336699]/5'
+                    ? 'bg-[#336699]/20 border-[#336699] shadow-lg' 
+                    : 'border-transparent hover:bg-white/5 hover:border-white/10'
                   }
                 `}
+                style={{
+                  height: 'calc(100% - 8px)',
+                  backgroundColor: isSelected ? 'rgba(51, 102, 153, 0.15)' : '#1A1A1A',
+                  borderColor: isSelected ? '#336699' : '#2A2A2A'
+                }}
               >
-                  {/* Health Indicator Badge */}
-                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                  {/* Group Name with Health Dot */}
+                  <div className="flex items-center gap-2 mb-1">
                     <div 
-                      className="w-2 h-2 rounded-full" 
+                      className="w-2 h-2 rounded-full flex-shrink-0" 
                       style={{ backgroundColor: health.color }}
                       title={health.message}
                     />
-                  </div>
-
-                  {/* Group Name */}
-                  <div className="font-medium text-sm mb-1 transition-colors pr-8 truncate" style={{ color: 'var(--sidebar-text)' }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm text-white/90 truncate">
                   {group.name}
-                </div>
-                  
-                  {/* Location & Privacy Row */}
-                  <div className="flex items-center gap-2 text-xs mb-1">
-                    {(group.target_city || group.target_state) && (
-                      <div className="flex items-center gap-1" style={{ color: 'var(--sidebar-text-secondary)' }}>
-                        <span>📍</span>
-                        <span>{group.target_city}{group.target_city && group.target_state ? ', ' : ''}{group.target_state}</span>
+                  </div>
                       </div>
+                  </div>
+                  
+                  {/* Location & Privacy */}
+                  <div className="flex items-center gap-2 mb-2 text-xs text-white/50">
+                    {(group.target_city || group.target_state) && (
+                      <span className="flex items-center gap-1">
+                        <span>📍</span>
+                        <span className="truncate max-w-[80px]">{group.target_city}{group.target_city && group.target_state ? ', ' : ''}{group.target_state}</span>
+                      </span>
                     )}
                     {group.privacy && (
-                      <span className={`
-                        px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide
-                        ${group.privacy === 'public' ? 'bg-green-500/20 text-green-400' :
-                          group.privacy === 'private' ? 'bg-orange-500/20 text-orange-400' :
-                          'bg-red-500/20 text-red-400'
-                        }
-                      `}>
-                        {group.privacy === 'public' ? '🌐 Public' :
-                         group.privacy === 'private' ? '🔒 Private' :
-                         '🔐 Closed'}
-                      </span>
+                      <span className="flex items-center gap-1">
+                        {group.privacy === 'public' ? '🌐' : group.privacy === 'private' ? '🔒' : '🔐'}
+                        <span className="capitalize">{group.privacy}</span>
+                    </span>
                     )}
-                  </div>
-                  
-                  {/* Quality Rating & Tier Row */}
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    {group.quality_rating && (
-                      <div className="flex items-center gap-1" style={{ color: '#EAB308' }}>
-                        <span>{'⭐'.repeat(Math.min(Math.round(group.quality_rating / 2), 5))}</span>
-                        <span className="text-[10px]">{group.quality_rating}/10</span>
-                      </div>
-                    )}
-                    
-                    {group.tier && (
-                      <span className={`
-                        px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide
-                        ${group.tier === 'high' ? 'bg-green-500/20 text-green-400' :
-                          group.tier === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                          'bg-gray-500/20 text-gray-400'
-                        }
-                      `}>
-                        {group.tier === 'high' ? 'T1' :
-                         group.tier === 'medium' ? 'T2' :
-                         'T3'}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Audience Size, Posts & QA Status Row */}
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <div style={{ color: 'var(--sidebar-text-secondary)' }}>
-                      {group.audience_size ? `${group.audience_size.toLocaleString()} members` : 'No size data'}
-                    </div>
-                    
-                    <div style={{ color: 'var(--sidebar-text-secondary)' }}>
-                  {groupPosts.length} posts
-                    </div>
                 </div>
                 
-                  {/* QA Status Badge */}
-                  {group.qa_status && group.qa_status !== 'approved' && (
-                    <div className="mt-1">
-                      <span className={`
-                        inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide
-                        ${group.qa_status === 'new' ? 'bg-blue-500/20 text-blue-400' :
-                          group.qa_status === 'pending_approval' ? 'bg-yellow-500/20 text-yellow-400' :
-                          'bg-red-500/20 text-red-400'
-                        }
-                      `}>
-                        {group.qa_status === 'new' ? '🆕 New' :
-                         group.qa_status === 'pending_approval' ? '⏳ Pending' :
-                         '❌ Rejected'}
-                      </span>
-                    </div>
-                  )}
-                
-                  {/* Company Name */}
-                {company && (
-                    <div className="text-xs mt-1 transition-colors" style={{ color: 'var(--sidebar-text-disabled)' }}>
-                    {company.name}
-                  </div>
-                )}
-
-                  {/* Posting Health Status - Simple indicator */}
-                  <div 
-                    className="text-xs mt-2 px-2 py-1 rounded flex items-center gap-1.5"
-                    style={{ 
-                      backgroundColor: `${health.color}15`,
-                      borderLeft: `2px solid ${health.color}`
-                    }}
-                  >
-                    <span>{health.icon}</span>
-                    <span style={{ color: health.color, fontSize: '11px', fontWeight: 500 }}>
-                      {health.postsThisWeek} post{health.postsThisWeek !== 1 ? 's' : ''} this week
-                    </span>
+                  {/* Stats & Health */}
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-white/50">
+                      {group.audience_size && group.audience_size >= 1000 ? `${(group.audience_size/1000).toFixed(0)}k` : group.audience_size || '-'} members
+                        </span>
+                    <span className="font-medium px-1.5 py-0.5 rounded" style={{ 
+                      backgroundColor: `${health.color}20`, 
+                      color: health.color 
+                    }}>
+                      {health.postsThisWeek}/3 this week
+                        </span>
                   </div>
               </div>
           </div>
@@ -1957,45 +2065,30 @@ const Sidebar = ({ onAddGroup, onEditGroup: _onEditGroup }: {
   )
 }
 
-// Top Navigation Component
-const TopNavigation = ({ onAddCompany }: { onAddCompany: () => void }) => {
-  const { companies, groups, posts, selectedCompanyId, setSelectedCompanyId, isDarkMode, toggleTheme } = useApp()
+// Left Navigation Component - Sleek Vertical Sidebar
+const LeftNavigation = ({ onAddCompany, onToggleSidebar }: { onAddCompany: () => void, onToggleSidebar?: () => void }) => {
+  const { companies, selectedCompanyId, setSelectedCompanyId, isDarkMode, toggleTheme } = useApp()
   const { user, logout, isAuthenticated } = useAuth()
   const location = useLocation()
-  const navigate = useNavigate()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const [isCompanySelectorOpen, setIsCompanySelectorOpen] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
   const userMenuRef = React.useRef<HTMLDivElement>(null)
+  const companySelectorRef = React.useRef<HTMLDivElement>(null)
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setIsUserMenuOpen(false)
       }
+      if (companySelectorRef.current && !companySelectorRef.current.contains(event.target as Node)) {
+        setIsCompanySelectorOpen(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
-
-  // Calculate contextual metrics based on selected company
-  const contextualMetrics = React.useMemo(() => {
-    if (selectedCompanyId) {
-      // Show metrics for selected company only
-      const companyGroups = groups.filter(g => g.company_id === selectedCompanyId)
-      const companyPosts = posts.filter(p => p.company_id === selectedCompanyId)
-      
-      return {
-        groupCount: companyGroups.length,
-        postCount: companyPosts.length
-      }
-    } else {
-      // When no company selected, show global metrics
-      return {
-        groupCount: groups.length,
-        postCount: posts.length
-      }
-    }
-  }, [selectedCompanyId, groups, posts])
 
   const handleLogout = async () => {
     try {
@@ -2006,177 +2099,1066 @@ const TopNavigation = ({ onAddCompany }: { onAddCompany: () => void }) => {
     }
   }
 
+  const navItems = [
+    { path: '/', icon: <Home size={20} />, label: 'Dashboard' },
+    { path: '/posts', icon: <FileText size={20} />, label: 'Posts' },
+    { path: '/groups', icon: <Compass size={20} />, label: 'Discover' },
+    { path: '/companies', icon: <Building size={20} />, label: 'Companies' },
+  ]
+
   return (
     <div 
-      className="fixed top-0 left-0 right-0 z-50 border-b" 
+      className="fixed top-0 left-0 bottom-0 z-[100] border-r flex flex-col transition-all duration-300 ease-out" 
       style={{ 
-        backgroundColor: isDarkMode ? '#121212' : '#ffffff', 
-        borderColor: 'var(--border-neutral)',
-        boxShadow: isDarkMode 
-          ? '0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2)'
-          : '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
+        width: isHovered ? '224px' : '64px',
+        backgroundColor: '#0A0A0A',
+        borderColor: '#1A1A1A',
+        boxShadow: '2px 0 8px rgba(0, 0, 0, 0.5)'
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="flex items-center justify-between px-6 h-16">
-        {/* Left Section - Company Selector & Navigation */}
-        <div className="flex items-center gap-8 h-full">
-          {/* Company Selector - Compact */}
-          <div className="w-64">
-            <CompanySelector
-              companies={companies}
-              selectedCompanyId={selectedCompanyId}
-              onSelectCompany={setSelectedCompanyId}
-              onAddCompany={onAddCompany}
-              isDarkMode={isDarkMode}
-            />
+      {/* Top Section - User Avatar */}
+      <div className={`flex flex-col ${isHovered ? 'items-start px-4' : 'items-center'} py-4 border-b`} style={{ borderColor: '#1A1A1A' }}>
+        {isAuthenticated && (
+          <div className="relative w-full" ref={userMenuRef}>
+            <button
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className={`${isHovered ? 'w-full px-3 justify-start gap-3' : 'w-10 mx-auto justify-center'} h-10 rounded-full flex items-center transition-all hover:ring-2 ring-[#336699] mb-2`}
+              style={{ 
+                backgroundColor: '#336699',
+              }}
+              title={isHovered ? undefined : (user?.name || 'User')}
+            >
+              <span className="text-white font-semibold text-sm flex-shrink-0">
+                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+              </span>
+              {isHovered && (
+                <span className="text-white text-sm font-medium truncate">
+                  {user?.name || 'User'}
+                </span>
+              )}
+            </button>
+
+            {/* User Dropdown Menu */}
+            {isUserMenuOpen && (
+              <div 
+                className="absolute left-full top-0 ml-2 w-56 rounded shadow-2xl z-[110]"
+                style={{ 
+                  backgroundColor: '#1E1E1E',
+                  border: '1px solid #333333'
+                }}
+              >
+                <div className="p-3 border-b" style={{ borderColor: '#333333' }}>
+                  <p className="text-sm font-medium truncate text-white/90">
+                    {user?.name || 'User'}
+                  </p>
+                  <p className="text-xs truncate text-white/60">
+                    {user?.email}
+                  </p>
+                </div>
+                <div className="py-1">
+            <button
+              onClick={() => {
+                      handleLogout()
+                      setIsHovered(false)
+              }}
+                    className="w-full text-left px-4 py-2 text-sm transition-colors text-red-500 hover:bg-red-500/10"
+            >
+                    Sign Out
+            </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Sidebar Toggle for Mobile */}
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className={`${isHovered ? 'w-full px-3 justify-start gap-3' : 'w-10 mx-auto justify-center'} h-10 flex items-center rounded-lg transition-all hover:bg-white/10`}
+            style={{ color: '#888888' }}
+            title={isHovered ? undefined : 'Toggle Sidebar'}
+          >
+            <Menu size={20} className="flex-shrink-0" />
+            {isHovered && (
+              <span className="text-sm text-white/70">Menu</span>
+            )}
+          </button>
+        )}
           </div>
           
-          {/* Navigation Tabs - Minimal with bottom border */}
-          <div className="flex items-center gap-6 h-full">
+      {/* Middle Section - Navigation Icons */}
+      <div className={`flex-1 flex flex-col ${isHovered ? 'items-stretch px-3' : 'items-center px-0'} py-6 gap-2`}>
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path
+          return (
           <Link 
-            to="/" 
-              className="relative h-full flex items-center text-sm font-medium transition-all hover:text-white/90 px-1"
+              key={item.path}
+              to={item.path}
+              onClick={() => setIsHovered(false)}
+              className={`relative ${isHovered ? 'w-full px-3 justify-start gap-3' : 'w-12 mx-auto justify-center'} h-12 flex items-center rounded-lg transition-all group`}
             style={{ 
-                color: location.pathname === '/' ? 'var(--text-primary)' : 'var(--text-secondary)'
+                backgroundColor: isActive ? '#336699' : 'transparent',
+                color: isActive ? '#FFFFFF' : '#888888'
+              }}
+              title={isHovered ? undefined : item.label}
+              onMouseEnter={(e) => {
+                if (!isActive) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'
               }}
             >
-              DASHBOARD
-              {location.pathname === '/' && (
+              <span className="flex-shrink-0">
+                {item.icon}
+              </span>
+              {isHovered && (
+                <span className="text-sm font-medium truncate">
+                  {item.label}
+                </span>
+              )}
+              {/* Active indicator */}
+              {isActive && (
                 <div 
-                  className="absolute bottom-0 left-0 right-0 h-0.5"
-                  style={{ backgroundColor: 'var(--steel-blue)' }}
+                  className={`absolute ${isHovered ? 'left-0' : 'left-0'} top-1/2 -translate-y-1/2 w-1 h-8 rounded-r`}
+                  style={{ backgroundColor: '#60A5FA' }}
                 />
               )}
           </Link>
-          <Link 
-            to="/posts" 
-              className="relative h-full flex items-center text-sm font-medium transition-all hover:text-white/90 px-1"
+          )
+        })}
+      </div>
+
+      {/* Bottom Section - Company Selector & Settings */}
+      <div className={`flex flex-col ${isHovered ? 'items-stretch px-3' : 'items-center px-0'} py-3 border-t gap-2`} style={{ borderColor: '#1A1A1A' }}>
+        {/* Company Selector Icon */}
+        <div className="relative w-full" ref={companySelectorRef}>
+          <button
+            onClick={() => {
+              setIsCompanySelectorOpen(!isCompanySelectorOpen)
+            }}
+            className={`${isHovered ? 'w-full px-3 justify-start gap-3' : 'w-10 mx-auto justify-center'} h-10 rounded-lg flex items-center transition-all hover:bg-white/10`}
             style={{ 
-                color: location.pathname === '/posts' ? 'var(--text-primary)' : 'var(--text-secondary)'
+              color: '#888888',
+              backgroundColor: selectedCompanyId ? 'rgba(51, 102, 153, 0.2)' : 'transparent'
+            }}
+            title={isHovered ? undefined : 'Select Company'}
+          >
+            <Building size={20} className="flex-shrink-0" />
+            {isHovered && (
+              <span className="text-sm text-white/70 truncate">
+                {selectedCompanyId ? companies.find(c => c.id === selectedCompanyId)?.name || 'Select Company' : 'Select Company'}
+              </span>
+            )}
+          </button>
+
+          {/* Company Selector Dropdown */}
+          {isCompanySelectorOpen && (
+            <div 
+              className="absolute left-full bottom-0 ml-2 w-64 rounded shadow-2xl z-[110]"
+            style={{ 
+                backgroundColor: '#1E1E1E',
+                border: '1px solid #333333'
               }}
             >
-              POSTS
-              {location.pathname === '/posts' && (
+              <CompanySelector
+                companies={companies}
+                selectedCompanyId={selectedCompanyId}
+                onSelectCompany={(id) => {
+                  setSelectedCompanyId(id)
+                  setIsCompanySelectorOpen(false)
+                  setIsHovered(false)
+                }}
+                onAddCompany={() => {
+                  onAddCompany()
+                  setIsCompanySelectorOpen(false)
+                  setIsHovered(false)
+                }}
+                isDarkMode={true}
+              />
+            </div>
+          )}
+              </div>
+
+        {/* Settings Icon */}
+        <button
+          onClick={toggleTheme}
+          className={`${isHovered ? 'w-full px-3 justify-start gap-3' : 'w-10 mx-auto justify-center'} h-10 rounded-lg flex items-center transition-all hover:bg-white/10`}
+          style={{ color: '#888888' }}
+          title={isHovered ? undefined : (isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode')}
+        >
+          <span className="flex-shrink-0">
+            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+          </span>
+          {isHovered && (
+            <span className="text-sm text-white/70">
+              {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+            </span>
+          )}
+        </button>
+            </div>
+            </div>
+  )
+}
+
+// Quick Compose Drawer Component - Twitter/X Style
+const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selectedCompanyId, selectedGroupId, initialContent, initialCompanyId, initialGroupId, posts, isDarkMode = true, updatePost, deletePost, editingPost, setEditingPost }: {
+  onClose: () => void
+  onPostCreated: (post: Post) => void
+  companies: Company[]
+  groups: Group[]
+  selectedCompanyId: string | null
+  selectedGroupId: string | null
+  initialContent?: string
+  initialCompanyId?: string | null
+  initialGroupId?: string | null
+  posts?: Post[]
+  isDarkMode?: boolean
+  updatePost?: (id: string, updates: any) => void
+  deletePost?: (id: string) => void
+  editingPost?: Post | null
+  setEditingPost?: (post: Post | null) => void
+}) => {
+  const [activeTab, setActiveTab] = useState<'compose' | 'drafts' | 'scheduled' | 'sent'>('compose')
+  const [content, setContent] = useState(initialContent || '')
+  const [companyId, setCompanyId] = useState(initialCompanyId || selectedCompanyId || '')
+  const [groupId, setGroupId] = useState(initialGroupId || selectedGroupId || '')
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [isClosing, setIsClosing] = useState(false)
+  const [showPostMenu, setShowPostMenu] = useState<string | null>(null)
+  const [postToDelete, setPostToDelete] = useState<Post | null>(null)
+  
+  // Update content when initialContent changes
+  useEffect(() => {
+    if (initialContent) {
+      setContent(initialContent)
+    }
+    if (initialCompanyId) {
+      setCompanyId(initialCompanyId)
+    }
+    if (initialGroupId) {
+      setGroupId(initialGroupId)
+    }
+  }, [initialContent, initialCompanyId, initialGroupId])
+
+  // Keep companyId in sync with selectedCompanyId from context
+  useEffect(() => {
+    if (selectedCompanyId) {
+      setCompanyId(selectedCompanyId)
+    }
+  }, [selectedCompanyId])
+  
+  // Advanced options
+  const [autoRetweet, setAutoRetweet] = useState(false)
+  const [retweetInterval, setRetweetInterval] = useState('8')
+  const [retweetTimes, setRetweetTimes] = useState('1')
+
+  const handleClose = () => {
+    setIsClosing(true)
+    setTimeout(() => {
+      onClose()
+    }, 300)
+  }
+
+  const handlePost = async () => {
+    if (!content.trim() || !groupId || !companyId) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+
+    const newPost: Post = {
+      id: Date.now().toString(),
+      title: 'Untitled Post',
+      content: content.trim(),
+      group_id: groupId,
+      company_id: companyId,
+      status: 'draft',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    onPostCreated(newPost)
+    toast.success('Draft created!')
+  }
+
+  const handleAddToQueue = () => {
+    toast('Queue functionality coming soon!', { icon: 'ℹ️' })
+  }
+
+  return (
+    <>
+      {/* Right Drawer */}
+      <div 
+        className={`fixed top-0 right-0 bottom-0 w-full max-w-sm z-[201] flex flex-col shadow-2xl transition-transform duration-300 ease-out ${
+          isClosing ? 'translate-x-full' : 'translate-x-0 animate-slide-in-right'
+        }`}
+            style={{ 
+          backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF', 
+          borderLeft: `1px solid ${isDarkMode ? '#333333' : '#E5E7EB'}` 
+        }}
+      >
+        {/* Header with Tabs */}
+        <div className="flex-shrink-0">
+          {/* Top Bar */}
+          <div 
+            className="flex items-center justify-between px-3 py-2 border-b" 
+            style={{ borderColor: isDarkMode ? '#333333' : '#E5E7EB' }}
+          >
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleClose}
+                style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                className="hover:opacity-90 transition-colors"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <button 
+              style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+              className="hover:opacity-90 transition-colors" 
+              title="More options"
+            >
+              <MoreHorizontal size={18} />
+            </button>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b" style={{ borderColor: isDarkMode ? '#333333' : '#E5E7EB' }}>
+            {[
+              { key: 'compose', label: 'Compose' },
+              { key: 'drafts', label: 'Drafts' },
+              { key: 'scheduled', label: 'Scheduled' },
+              { key: 'sent', label: 'Sent' }
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key as any)}
+                className="flex-1 px-2 py-2 text-xs font-medium transition-colors relative"
+                  style={{ 
+                  color: activeTab === tab.key 
+                    ? (isDarkMode ? '#FFFFFF' : '#000000')
+                    : (isDarkMode ? '#888888' : '#666666')
+                }}
+              >
+                {tab.label}
+                {activeTab === tab.key && (
                 <div 
                   className="absolute bottom-0 left-0 right-0 h-0.5"
-                  style={{ backgroundColor: 'var(--steel-blue)' }}
+                    style={{ backgroundColor: '#336699' }}
                 />
               )}
-          </Link>
+              </button>
+            ))}
         </div>
               </div>
 
-        {/* Right Section - Stats & User */}
-        <div className="flex items-center gap-6">
-          {/* Compact Stats with Labels */}
-          <div className="flex items-center gap-4 text-xs">
-            <div className="flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#388E3C]"></div>
-              <span style={{ color: 'var(--text-primary)' }}>{contextualMetrics.groupCount}</span>
-              <span style={{ color: 'var(--text-secondary)' }}>groups</span>
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {activeTab === 'compose' && (
+            <>
+              {/* Your content label */}
+              <div className="flex items-center justify-between mb-3">
+                <h3 
+                  className="font-medium text-sm"
+                  style={{ color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)' }}
+                >
+                  Your content
+                </h3>
+                    <button
+                  style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                  className="text-xs hover:opacity-90 flex items-center gap-1"
+                >
+                  <span>+</span>
+                  <span className="underline">New draft</span>
+                </button>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#9C27B0]"></div>
-              <span style={{ color: 'var(--text-primary)' }}>{contextualMetrics.postCount}</span>
-              <span style={{ color: 'var(--text-secondary)' }}>posts</span>
+
+              {/* Group Selector */}
+              <div className="mb-3">
+                <select
+                  value={groupId}
+                  onChange={(e) => setGroupId(e.target.value)}
+                  className="w-full px-2 py-2 rounded text-xs"
+                  style={{ 
+                    backgroundColor: isDarkMode ? '#2A2A2A' : '#F9FAFB', 
+                    border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`, 
+                    color: isDarkMode ? '#FFFFFF' : '#000000' 
+                  }}
+                >
+                  <option value="">Select Group</option>
+                  {groups
+                    .filter(g => !selectedCompanyId || g.company_id === selectedCompanyId)
+                    .map(group => (
+                      <option key={group.id} value={group.id}>{group.name}</option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Textarea */}
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Write here.&#10;&#10;&#10;Skip 3 lines to start a thread."
+                className="w-full h-48 p-3 rounded-lg resize-none text-sm placeholder:opacity-40"
+                      style={{ 
+                  backgroundColor: isDarkMode ? '#2A2A2A' : '#F9FAFB', 
+                  border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`,
+                        color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
+                      }}
+                maxLength={280}
+              />
+
+              {/* Character Count & Tools */}
+              <div className="flex items-center justify-between mt-2 mb-3">
+                <div 
+                  className="flex items-center gap-2 text-xs"
+                  style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                >
+                  <span>{content.length} / 280</span>
+                  <span>saved ✓</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button 
+                    style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                    className="hover:opacity-90 p-1.5" 
+                    title="AI"
+                  >⚡</button>
+                  <button 
+                    style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                    className="hover:opacity-90 p-1.5" 
+                    title="Media"
+                  >🖼️</button>
+                  <button 
+                    style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                    className="hover:opacity-90 p-1.5" 
+                    title="Text"
+                  >T</button>
+                  <button 
+                    style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                    className="hover:opacity-90 p-1.5" 
+                    title="Poll"
+                  >📊</button>
+                  <button 
+                    style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                    className="hover:opacity-90 p-1.5" 
+                    title="Emoji"
+                  >😊</button>
+                  <button 
+                    style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                    className="hover:opacity-90 p-1.5" 
+                    title="Schedule"
+                  >📅</button>
             </div>
           </div>
           
-          {/* Subtle Divider */}
-          <div className="h-4 w-px" style={{ backgroundColor: 'var(--border-neutral)' }}></div>
-          
-          {/* User Avatar */}
-          {isAuthenticated && (
-            <div className="relative" ref={userMenuRef}>
+              {/* Action Buttons */}
+              <div className="space-y-2 mb-3">
+                <div className="flex items-center gap-2">
+                    <button
+                    onClick={handlePost}
+                    className="px-3 py-1.5 rounded text-xs font-medium transition-colors flex-1"
+                    style={{ 
+                      backgroundColor: isDarkMode ? '#2A2A2A' : '#F9FAFB', 
+                      color: isDarkMode ? '#888888' : '#666666', 
+                      border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}` 
+                    }}
+                  >
+                    Save Draft
+                  </button>
+                  <button 
+                    style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                    className="px-2 py-1.5 hover:opacity-90"
+                  >
+                    <Search size={14} />
+                  </button>
+                </div>
+                <button
+                  onClick={handleAddToQueue}
+                  className="w-full px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-between"
+                  style={{ backgroundColor: '#336699', color: '#FFFFFF' }}
+                >
+                  <span>Add to Queue</span>
+                  <span className="text-[10px] opacity-80">Feb 28th, 11:57 AM</span>
+                </button>
+              </div>
+
               <button
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="w-8 h-8 rounded flex items-center justify-center transition-all hover:bg-white/5"
+                style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                className="text-xs hover:opacity-90 underline mb-3"
+              >
+                Edit queue
+              </button>
+
+              {/* Advanced Options */}
+              <button
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="w-full flex items-center justify-between p-2 rounded-lg mb-2 transition-colors"
                 style={{ 
-                  backgroundColor: 'var(--steel-blue)',
-                  border: '1px solid var(--border-neutral)'
+                  border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`,
+                  backgroundColor: isDarkMode ? 'transparent' : 'transparent'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent'
                 }}
               >
-                <span className="text-white font-medium text-xs uppercase">
-                  {user?.name?.charAt(0) || 'U'}
+                <div>
+                  <div 
+                    className="font-medium text-left text-xs"
+                    style={{ color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)' }}
+                  >
+                    Advanced Options
+                  </div>
+                  <div 
+                    className="text-[10px] text-left"
+                    style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                  >
+                    enabled: auto-retweet, tweet delay
+                  </div>
+                </div>
+                <span 
+                  className="text-xs transition-transform"
+                  style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                >
+                  {showAdvanced ? '▲' : '▼'}
                 </span>
               </button>
 
-              {/* Dropdown Menu */}
-              {isUserMenuOpen && (
+              {showAdvanced && (
                 <div 
-                  className="absolute top-full right-0 mt-2 w-48 rounded shadow-2xl z-50"
-                  style={{ 
-                    backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-                    border: isDarkMode ? '1px solid #333333' : '1px solid #E5E7EB'
-                  }}
+                  className="p-2 rounded-lg space-y-3" 
+                  style={{ backgroundColor: isDarkMode ? '#2A2A2A' : '#F9FAFB' }}
                 >
-                  <div className="p-3 border-b" style={{ borderColor: isDarkMode ? '#333333' : '#E5E7EB' }}>
-                    <p className="text-sm font-medium truncate" style={{ color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)' }}>
-                      {user?.name || 'User'}
-                    </p>
-                    <p className="text-xs truncate" style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}>
-                      {user?.email}
-                    </p>
+                  <div 
+                    className="p-2 rounded flex items-center gap-2 text-xs" 
+                    style={{ backgroundColor: 'rgba(51, 102, 153, 0.2)', color: '#60A5FA' }}
+                  >
+                    <span>ℹ️</span>
+                    <span>These settings will affect this post only</span>
                   </div>
-                  <div className="py-1">
+
+                  {/* Auto retweet */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span 
+                        className="text-xs"
+                        style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                      >?</span>
+                      <span 
+                        className="text-xs"
+                        style={{ color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)' }}
+                      >
+                        Auto retweet
+                      </span>
+                    </div>
                     <button
-                      onClick={() => {
-                        setIsUserMenuOpen(false)
-                        navigate('/companies')
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm transition-colors"
-                      style={{ 
-                        color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      onClick={() => setAutoRetweet(!autoRetweet)}
+                      className={`w-10 h-5 rounded-full transition-colors relative ${autoRetweet ? 'bg-blue-500' : (isDarkMode ? 'bg-gray-600' : 'bg-gray-300')}`}
                     >
-                      Manage Companies
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        toggleTheme()
-                        setIsUserMenuOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm transition-colors flex items-center gap-2"
-                      style={{ 
-                        color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      {isDarkMode ? (
-                        <>
-                          <Sun size={14} />
-                          <span>Light Mode</span>
-                        </>
-                      ) : (
-                        <>
-                          <Moon size={14} />
-                          <span>Dark Mode</span>
-            </>
-          )}
-                    </button>
-                    
-                    <div className="my-1 border-t" style={{ borderColor: isDarkMode ? '#333333' : '#E5E7EB' }}></div>
-                    
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm transition-colors text-red-500"
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      Sign Out
+                      <div className={`absolute top-0.5 w-3.5 h-3.5 bg-white rounded-full transition-transform ${autoRetweet ? 'translate-x-5' : 'translate-x-0.5'}`} />
                     </button>
           </div>
-        </div>
-              )}
+
+                  {autoRetweet && (
+                    <div className="grid grid-cols-2 gap-2 ml-6">
+                      <div>
+                        <label 
+                          className="text-xs block mb-1"
+                          style={{ color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)' }}
+                        >
+                          Interval
+                        </label>
+                        <select
+                          value={retweetInterval}
+                          onChange={(e) => setRetweetInterval(e.target.value)}
+                          className="w-full px-2 py-1.5 rounded text-xs"
+                  style={{ 
+                    backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+                            border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`, 
+                            color: isDarkMode ? '#FFFFFF' : '#000000' 
+                          }}
+                        >
+                          <option value="8">8 hours</option>
+                          <option value="12">12 hours</option>
+                          <option value="24">24 hours</option>
+                        </select>
+                  </div>
+                      <div>
+                        <label 
+                          className="text-xs block mb-1"
+                          style={{ color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)' }}
+                        >
+                          # of times
+                        </label>
+                        <select
+                          value={retweetTimes}
+                          onChange={(e) => setRetweetTimes(e.target.value)}
+                          className="w-full px-2 py-1.5 rounded text-xs"
+                          style={{ 
+                            backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF', 
+                            border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`, 
+                            color: isDarkMode ? '#FFFFFF' : '#000000' 
+                          }}
+                        >
+                          <option value="1">1 time</option>
+                          <option value="2">2 times</option>
+                          <option value="3">3 times</option>
+                        </select>
+                      </div>
             </div>
           )}
         </div>
+              )}
+            </>
+          )}
+
+          {activeTab === 'drafts' && (
+            <div>
+              {(() => {
+                const draftPosts = (posts || []).filter(p => 
+                  p.status === 'draft' && (!selectedGroupId || p.group_id === selectedGroupId)
+                )
+                if (draftPosts.length === 0) {
+                  return (
+                    <div 
+                      className="text-center py-12"
+                      style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                    >
+                      <p className="text-xs">No drafts yet</p>
+                    </div>
+                  )
+                }
+                return (
+                  <div className="grid grid-cols-2 gap-2 max-h-[600px] overflow-y-auto">
+                    {draftPosts.map((post) => (
+                      <div
+                        key={post.id}
+                        className="p-2 rounded border cursor-pointer transition-colors relative"
+                      style={{ 
+                          backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+                          borderColor: isDarkMode ? '#404040' : '#E5E7EB'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = '#336699'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = isDarkMode ? '#404040' : '#E5E7EB'
+                        }}
+                        onClick={() => {
+                          setContent(post.content || '')
+                          setCompanyId(post.company_id || '')
+                          setGroupId(post.group_id || '')
+                          setActiveTab('compose')
+                          if (setEditingPost) {
+                            setEditingPost(post)
+                          }
+                        }}
+                      >
+                        {/* Menu Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowPostMenu(showPostMenu === post.id ? null : post.id)
+                          }}
+                          className="absolute top-1 right-1 p-1 rounded hover:bg-white/10"
+                          style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                        >
+                          <MoreHorizontal size={12} />
+                    </button>
+                    
+                        {showPostMenu === post.id && (
+                          <div 
+                            className="absolute top-6 right-1 rounded shadow-lg z-50 min-w-[100px]"
+                            style={{ 
+                              backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF',
+                              border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {updatePost && (
+                    <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setContent(post.content || '')
+                                  setCompanyId(post.company_id || '')
+                                  setGroupId(post.group_id || '')
+                                  setActiveTab('compose')
+                                  if (setEditingPost) setEditingPost(post)
+                                  setShowPostMenu(null)
+                                }}
+                                className="w-full px-2 py-1.5 text-left text-xs transition-colors"
+                      style={{ 
+                        color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
+                      }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'transparent'
+                                }}
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {deletePost && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setPostToDelete(post)
+                                  setShowPostMenu(null)
+                                }}
+                                className="w-full px-2 py-1.5 text-left text-xs text-red-500 transition-colors"
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'transparent'
+                                }}
+                              >
+                                Delete
+                    </button>
+                            )}
+                          </div>
+                        )}
+
+                        <p 
+                          className="text-xs line-clamp-3 mb-1 pr-6"
+                          style={{ color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)' }}
+                        >
+                          {post.content}
+                        </p>
+                        <div 
+                          className="flex items-center justify-between text-[10px]"
+                          style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                        >
+                          <span>{groups.find(g => g.id === post.group_id)?.name || 'Unknown'}</span>
+                          <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {activeTab === 'scheduled' && (
+            <div>
+              {(() => {
+                const scheduledPosts = (posts || []).filter(p => 
+                  (p.status === 'ready_to_post' || p.status === 'pending_approval') && (!selectedGroupId || p.group_id === selectedGroupId)
+                )
+                if (scheduledPosts.length === 0) {
+                  return (
+                    <div 
+                      className="text-center py-12"
+                      style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                    >
+                      <p className="text-xs">No scheduled posts</p>
+                    </div>
+                  )
+                }
+                return (
+                  <div className="grid grid-cols-2 gap-2 max-h-[600px] overflow-y-auto">
+                    {scheduledPosts.map((post) => (
+                      <div
+                        key={post.id}
+                        className="p-2 rounded border cursor-pointer transition-colors relative"
+                        style={{
+                          backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+                          borderColor: isDarkMode ? '#404040' : '#E5E7EB'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = '#336699'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = isDarkMode ? '#404040' : '#E5E7EB'
+                        }}
+                        onClick={() => {
+                          setContent(post.content || '')
+                          setCompanyId(post.company_id || '')
+                          setGroupId(post.group_id || '')
+                          setActiveTab('compose')
+                          if (setEditingPost) {
+                            setEditingPost(post)
+                          }
+                        }}
+                      >
+                        {/* Menu Button */}
+                    <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowPostMenu(showPostMenu === post.id ? null : post.id)
+                          }}
+                          className="absolute top-1 right-1 p-1 rounded hover:bg-white/10"
+                          style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                        >
+                          <MoreHorizontal size={12} />
+                    </button>
+                        
+                        {showPostMenu === post.id && (
+                          <div 
+                            className="absolute top-6 right-1 rounded shadow-lg z-50 min-w-[100px]"
+                            style={{ 
+                              backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF',
+                              border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {updatePost && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setContent(post.content || '')
+                                  setCompanyId(post.company_id || '')
+                                  setGroupId(post.group_id || '')
+                                  setActiveTab('compose')
+                                  if (setEditingPost) setEditingPost(post)
+                                  setShowPostMenu(null)
+                                }}
+                                className="w-full px-2 py-1.5 text-left text-xs transition-colors"
+                                style={{ 
+                                  color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'transparent'
+                                }}
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {deletePost && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setPostToDelete(post)
+                                  setShowPostMenu(null)
+                                }}
+                                className="w-full px-2 py-1.5 text-left text-xs text-red-500 transition-colors"
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'transparent'
+                                }}
+                              >
+                                Delete
+                              </button>
+              )}
+            </div>
+          )}
+
+                        <p 
+                          className="text-xs line-clamp-3 mb-1 pr-6"
+                          style={{ color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)' }}
+                        >
+                          {post.content}
+                        </p>
+                        <div 
+                          className="flex items-center justify-between text-[10px]"
+                          style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                        >
+                          <span>{groups.find(g => g.id === post.group_id)?.name || 'Unknown'}</span>
+                          <span>{new Date(post.created_at).toLocaleDateString()}</span>
+        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {activeTab === 'sent' && (
+            <div>
+              {(() => {
+                const sentPosts = (posts || []).filter(p => 
+                  p.status === 'posted' && (!selectedGroupId || p.group_id === selectedGroupId)
+                )
+                if (sentPosts.length === 0) {
+                  return (
+                    <div 
+                      className="text-center py-12"
+                      style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                    >
+                      <p className="text-xs">No sent posts</p>
+                    </div>
+                  )
+                }
+                return (
+                  <div className="grid grid-cols-2 gap-2 max-h-[600px] overflow-y-auto">
+                    {sentPosts.map((post) => (
+                      <div
+                        key={post.id}
+                        className="p-2 rounded border cursor-pointer transition-colors relative"
+            style={{ 
+                          backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+                          borderColor: isDarkMode ? '#404040' : '#E5E7EB'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = '#336699'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = isDarkMode ? '#404040' : '#E5E7EB'
+                        }}
+                        onClick={() => {
+                          setContent(post.content || '')
+                          setCompanyId(post.company_id || '')
+                          setGroupId(post.group_id || '')
+                          setActiveTab('compose')
+                          if (setEditingPost) {
+                            setEditingPost(post)
+                          }
+                        }}
+                      >
+                        {/* Menu Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowPostMenu(showPostMenu === post.id ? null : post.id)
+                          }}
+                          className="absolute top-1 right-1 p-1 rounded hover:bg-white/10"
+                          style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                        >
+                          <MoreHorizontal size={12} />
+                        </button>
+                        
+                        {showPostMenu === post.id && (
+                          <div 
+                            className="absolute top-6 right-1 rounded shadow-lg z-50 min-w-[100px]"
+                style={{ 
+                              backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF',
+                              border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {updatePost && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setContent(post.content || '')
+                                  setCompanyId(post.company_id || '')
+                                  setGroupId(post.group_id || '')
+                                  setActiveTab('compose')
+                                  if (setEditingPost) setEditingPost(post)
+                                  setShowPostMenu(null)
+                                }}
+                                className="w-full px-2 py-1.5 text-left text-xs transition-colors"
+                style={{ 
+                                  color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'transparent'
+                                }}
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {deletePost && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setPostToDelete(post)
+                                  setShowPostMenu(null)
+                                }}
+                                className="w-full px-2 py-1.5 text-left text-xs text-red-500 transition-colors"
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'transparent'
+                                }}
+                              >
+                                Delete
+                              </button>
+                            )}
+            </div>
+                        )}
+
+                        <p 
+                          className="text-xs line-clamp-3 mb-1 pr-6"
+                          style={{ color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)' }}
+                        >
+                          {post.content}
+                        </p>
+                        <div 
+                          className="flex items-center justify-between text-[10px]"
+                          style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+                        >
+                          <span>{groups.find(g => g.id === post.group_id)?.name || 'Unknown'}</span>
+                          <span>{post.posted_at ? new Date(post.posted_at).toLocaleDateString() : new Date(post.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+          </div>
+        )}
       </div>
     </div>
+
+      {/* Delete Confirmation Modal */}
+      {postToDelete && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[250]">
+          <div 
+            className="rounded-lg p-4 w-full max-w-xs mx-4 shadow-2xl"
+            style={{ 
+              backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF', 
+              border: `1px solid ${isDarkMode ? '#333333' : '#E5E7EB'}` 
+            }}
+          >
+            <h2 
+              className="text-sm font-medium mb-2"
+              style={{ color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)' }}
+            >
+              Delete Post?
+            </h2>
+            <p 
+              className="text-xs mb-4"
+              style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
+            >
+              Are you sure you want to delete this post? This action cannot be undone.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setPostToDelete(null)}
+                className="px-3 py-1.5 rounded text-xs font-medium transition-colors"
+                style={{ 
+                  backgroundColor: isDarkMode ? '#333333' : '#F3F4F6', 
+                  color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (deletePost && postToDelete) {
+                    deletePost(postToDelete.id)
+                    setPostToDelete(null)
+                  }
+                }}
+                className="px-3 py-1.5 rounded text-xs font-medium transition-colors text-white"
+                style={{ backgroundColor: '#EF4444' }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -2293,7 +3275,7 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
             {selectedCompanyId ? (
               <div className="h-10 px-3 rounded flex items-center" style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)' }}>
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  {companies.find(c => c.id === selectedCompanyId)?.name || 'Selected Company'}
+                {companies.find(c => c.id === selectedCompanyId)?.name || 'Selected Company'}
                 </span>
               </div>
             ) : (
@@ -2344,13 +3326,13 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
           {/* Category */}
           <div>
             <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Category</label>
-            <select
-              value={formData.category}
-              onChange={(e) => handleCategoryChange(e.target.value)}
+              <select
+                value={formData.category}
+                onChange={(e) => handleCategoryChange(e.target.value)}
               className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
-              style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
-              required
-            >
+                style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+                required
+              >
               <option value="">Select a category...</option>
               <option value="Real Estate">Real Estate</option>
               <option value="Business">Business</option>
@@ -2376,18 +3358,18 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
           </div>
 
           {/* Audience Size */}
-          <div>
+            <div>
             <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Audience Size</label>
-            <input
-              type="number"
-              value={formData.audience_size}
-              onChange={(e) => handleAudienceSizeChange(parseInt(e.target.value) || 0)}
+              <input
+                type="number"
+                value={formData.audience_size}
+                onChange={(e) => handleAudienceSizeChange(parseInt(e.target.value) || 0)}
               placeholder="Enter audience size..."
-              min="0"
+                min="0"
               className="w-full h-10 px-3 rounded text-sm focus:outline-none focus:border-[#336699] focus:ring-2 focus:ring-[#336699]/40 transition-all"
-              style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
-              required
-            />
+                style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-neutral)', color: 'var(--text-primary)' }}
+                required
+              />
           </div>
 
           {/* Privacy */}
@@ -2476,7 +3458,7 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
               <option value="rejected">Rejected - Can't Post Here</option>
             </select>
           </div>
-
+        
           {/* Tier Display */}
           <div>
             <label className="block text-[11px] font-medium uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--text-primary)' }}>Tier (Auto-assigned)</label>
@@ -2495,15 +3477,15 @@ const AddGroupModal = ({ isOpen, onClose, onEditGroup, editingGroup }: {
               className="h-10 px-4 rounded text-sm font-medium uppercase tracking-[0.5px] transition-colors hover:bg-white/5"
               style={{ border: '1px solid var(--border-neutral)', color: 'var(--text-secondary)' }}
             >
-                Cancel
-              </button>
+              Cancel
+            </button>
             <button
               type="submit"
               className="h-10 px-4 bg-[#336699] text-white rounded text-sm font-medium uppercase tracking-[0.5px] hover:bg-[#336699]/80 transition-colors"
             >
               {editingGroup ? 'UPDATE' : 'CREATE'}
-              </button>
-            </div>
+            </button>
+          </div>
           </form>
         </div>
     </div>
@@ -2523,20 +3505,26 @@ const Layout = ({
   setEditingGroup: (group: Group | null) => void
 }) => {
   // ✅ ALL HOOKS MUST BE AT THE TOP (before any returns)
-  const { addGroup, updateGroup, addCompany, updateCompany, loading, posts, groups, selectedCompanyId, setSelectedGroupId } = useApp()
+  const { addGroup, updateGroup, addCompany, updateCompany, loading, posts, groups, selectedCompanyId, setSelectedGroupId, addPost, updatePost, deletePost, selectedGroupId: contextSelectedGroupId, companies, isDarkMode } = useApp()
   const location = useLocation()
   const [showAddGroup, setShowAddGroup] = useState(false)
   const [showAddCompany, setShowAddCompany] = useState(false)
   const [showEditCompany, setShowEditCompany] = useState(false)
   const [editingCompany, setEditingCompany] = useState<Company | null>(null)
-  
-  // Recent Posts Panel collapse state
-  const [isRecentPostsCollapsed, setIsRecentPostsCollapsed] = useState<boolean>(() => {
-    const saved = localStorage.getItem('recentPostsPanelCollapsed')
-    return saved === 'true'
-  })
+  const [showComposeDrawer, setShowComposeDrawer] = useState(false)
+  const [pendingAIContent, setPendingAIContent] = useState<string | null>(null)
+  const [pendingCompanyId, setPendingCompanyId] = useState<string | null>(null)
+  const [pendingGroupId, setPendingGroupId] = useState<string | null>(null)
+  const [editingPost, setEditingPost] = useState<Post | null>(null)
 
   const isPostsPage = location.pathname === '/posts'
+
+  // Auto-open drawer when pendingAIContent is set
+  useEffect(() => {
+    if (pendingAIContent) {
+      setShowComposeDrawer(true)
+    }
+  }, [pendingAIContent])
 
   const handleAddGroup = () => {
     setEditingGroup(null)
@@ -2570,7 +3558,7 @@ const Layout = ({
               <MessageSquare size={24} className="text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>FB Group Ads Manager</h1>
+              <h1 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>Group Caster</h1>
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Construction Industry Edition</p>
           </div>
         </div>
@@ -2598,30 +3586,37 @@ const Layout = ({
     )
   }
 
+  const handlePostCreated = async (post: Post) => {
+    await addPost(post)
+    toast.success('Post created!')
+  }
+
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--carbon-black)' }}>
-      {/* Top Navigation - Always full width on all pages */}
-      <TopNavigation onAddCompany={handleAddCompany} />
+      {/* Left Navigation - Always visible on all pages */}
+      <LeftNavigation onAddCompany={handleAddCompany} />
       
-      {/* Spacer for fixed navbar */}
-      <div className="h-16"></div>
-      
-      <div className="flex flex-1">
+      <div className="flex flex-1 ml-16">
         {/* Sidebar - Only show on Posts page */}
         {isPostsPage && (
       <Sidebar 
         onAddGroup={handleAddGroup} 
         onEditGroup={(group) => {
-          console.log('📝 Layout onEditGroup called with:', group.name)
+              console.log('📝 Layout onEditGroup called with:', group.name)
           setEditingGroup(group)
           setShowEditGroupModal(true)
-          console.log('📝 Modal state should now be true')
+              console.log('📝 Modal state should now be true')
         }}
           />
         )}
         
-        {/* Main Content Area */}
-        <main className={`flex-1 transition-all duration-300 ${isPostsPage ? 'ml-80' : ''} ${isRecentPostsCollapsed ? 'mr-12' : 'mr-80'}`}>
+        {/* Main Content Area - Adjusts for drawer */}
+        <main 
+          id="main-content"
+          className={`flex-1 transition-all duration-300 ${isPostsPage ? 'ml-80' : ''} ${
+            showComposeDrawer ? 'mr-96' : ''
+          }`}
+        >
           <Routes>
               <Route path="/" element={<Dashboard 
                 groups={groups}
@@ -2634,13 +3629,72 @@ const Layout = ({
                 setShowEditGroupModal={setShowEditGroupModal}
                 editingGroup={editingGroup}
                 setEditingGroup={setEditingGroup}
-                isRecentPostsCollapsed={isRecentPostsCollapsed}
-                setIsRecentPostsCollapsed={setIsRecentPostsCollapsed}
+                setPendingAIContent={setPendingAIContent}
+                setPendingCompanyId={setPendingCompanyId}
+                setPendingGroupId={setPendingGroupId}
+                showComposeDrawer={showComposeDrawer}
               />} />
               <Route path="/companies" element={<CompaniesPage />} />
           </Routes>
         </main>
       </div>
+
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-8 right-8 z-[60] flex flex-col gap-3">
+        {/* Quick Compose Button */}
+        <button
+          onClick={() => setShowComposeDrawer(true)}
+          className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110"
+          style={{ backgroundColor: '#3B82F6' }}
+          title="Quick Compose"
+        >
+          <Pencil size={24} className="text-white" />
+        </button>
+        
+        {/* Draft Counter Badge (if there are drafts) */}
+        {(() => {
+          const draftCount = posts.filter(p => p.status === 'draft').length
+          if (draftCount > 0) {
+            return (
+              <div 
+                className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-xs font-semibold"
+                style={{ backgroundColor: '#EAB308', color: '#000000' }}
+                title={`${draftCount} drafts`}
+              >
+                {draftCount}
+              </div>
+            )
+          }
+          return null
+        })()}
+      </div>
+
+      {/* Quick Compose Drawer */}
+      {showComposeDrawer && (
+        <QuickComposeDrawer
+          onClose={() => {
+            setShowComposeDrawer(false)
+            setPendingAIContent(null)
+            setPendingCompanyId(null)
+            setPendingGroupId(null)
+            setEditingPost(null)
+          }}
+          onPostCreated={handlePostCreated}
+          companies={companies}
+          groups={groups}
+          selectedCompanyId={selectedCompanyId}
+          selectedGroupId={contextSelectedGroupId}
+          initialContent={pendingAIContent || undefined}
+          initialCompanyId={pendingCompanyId || undefined}
+          initialGroupId={pendingGroupId || undefined}
+          posts={posts}
+          isDarkMode={isDarkMode}
+          updatePost={updatePost}
+          deletePost={deletePost}
+          editingPost={editingPost}
+          setEditingPost={setEditingPost}
+        />
+      )}
 
       {/* Add Group Modal */}
       <AddGroupModal 
@@ -2689,54 +3743,54 @@ const EnhancedApp = () => {
   const [editingGroup, setEditingGroup] = useState<Group | null>(null)
 
   return (
-    <AuthProvider>
-    <AppProvider>
-      <BrowserRouter>
-        {/* Toast Notifications */}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              background: 'var(--card-bg)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-neutral)',
-            },
-            success: {
-              iconTheme: {
-                primary: '#388E3C',
-                secondary: '#fff',
-              },
-            },
-            error: {
-              iconTheme: {
-                primary: '#D32F2F',
-                secondary: '#fff',
-              },
-            },
-          }}
-        />
-        
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
-            <Route 
-              path="/*" 
-              element={
-                <ProtectedRoute>
-                  <Layout 
-                    showEditGroupModal={showEditGroupModal}
-                    setShowEditGroupModal={setShowEditGroupModal}
-                    editingGroup={editingGroup}
-                    setEditingGroup={setEditingGroup}
-                  />
-                </ProtectedRoute>
-              } 
+      <AuthProvider>
+        <AppProvider>
+          <BrowserRouter>
+            {/* Toast Notifications */}
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 3000,
+                style: {
+                  background: 'var(--card-bg)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-neutral)',
+                },
+                success: {
+                  iconTheme: {
+                    primary: '#388E3C',
+                    secondary: '#fff',
+                  },
+                },
+                error: {
+                  iconTheme: {
+                    primary: '#D32F2F',
+                    secondary: '#fff',
+                  },
+                },
+              }}
             />
-          </Routes>
-      </BrowserRouter>
-    </AppProvider>
-    </AuthProvider>
+            
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignupPage />} />
+              <Route 
+                path="/*" 
+                element={
+                  <ProtectedRoute>
+                    <Layout 
+                      showEditGroupModal={showEditGroupModal}
+                      setShowEditGroupModal={setShowEditGroupModal}
+                      editingGroup={editingGroup}
+                      setEditingGroup={setEditingGroup}
+                    />
+                  </ProtectedRoute>
+                } 
+              />
+            </Routes>
+          </BrowserRouter>
+        </AppProvider>
+      </AuthProvider>
   )
 }
 

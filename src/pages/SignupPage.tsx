@@ -27,7 +27,7 @@ export const SignupPage: React.FC = () => {
       <div className="max-w-md w-full">
         {/* Logo/Header */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white mb-2">FB Group Ads Manager</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">Group Caster</h1>
           <p className="text-gray-400">Create your account</p>
         </div>
 
@@ -41,7 +41,7 @@ export const SignupPage: React.FC = () => {
 
           <div className="text-center">
             <p className="text-gray-400 mb-6">
-              Create your account with Google to get started with FB Group Ads Manager
+              Create your account with Google to get started with Group Caster
             </p>
 
             <button

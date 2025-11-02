@@ -27,7 +27,7 @@ export const LoginPage: React.FC = () => {
       <div className="max-w-md w-full">
         {/* Logo/Header */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white mb-2">FB Group Ads Manager</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">Group Caster</h1>
           <p className="text-gray-400">Sign in to your account</p>
         </div>
 
@@ -41,7 +41,7 @@ export const LoginPage: React.FC = () => {
 
           <div className="text-center">
             <p className="text-gray-400 mb-6">
-              Sign in with your Google account to access FB Group Ads Manager
+              Sign in with your Google account to access Group Caster
             </p>
 
             <button
