@@ -1,6 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from 'react'
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
-import { MessageSquare, X, Settings, MoreHorizontal, Search, Sun, Moon, Menu, Home, FileText, Compass, Building, Sparkles, Plus, Pencil } from 'lucide-react'
+import { MessageSquare, X, Settings, MoreHorizontal, Search, Sun, Moon, Menu, Home, FileText, Compass, Building, Plus, Pencil, Calendar, Clock, Send } from 'lucide-react'
 import { aiTemplateStructure } from './components/aiTemplates'
 import toast, { Toaster } from 'react-hot-toast'
 import { List } from 'react-window'
@@ -37,6 +37,8 @@ const AppContext = createContext<{
   deletePost: (id: string) => Promise<void>
   isDarkMode: boolean
   toggleTheme: () => void
+  isNavExpanded: boolean
+  setIsNavExpanded: (expanded: boolean) => void
 }>({
   companies: [],
   groups: [],
@@ -57,7 +59,9 @@ const AppContext = createContext<{
   deleteCompany: async () => {},
   deletePost: async () => {},
   isDarkMode: true,
-  toggleTheme: () => {}
+  toggleTheme: () => {},
+  isNavExpanded: false,
+  setIsNavExpanded: () => {}
 })
 
 export const useApp = () => useContext(AppContext)
@@ -150,6 +154,7 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const saved = localStorage.getItem('theme')
     return saved ? saved === 'dark' : true // Default to dark mode
   })
+  const [isNavExpanded, setIsNavExpanded] = useState(false)
 
   // Toggle theme function
   const toggleTheme = () => {
@@ -501,7 +506,9 @@ const AppProvider = ({ children }: { children: React.ReactNode }) => {
       deleteCompany,
       deletePost, 
       isDarkMode,
-      toggleTheme
+      toggleTheme,
+      isNavExpanded,
+      setIsNavExpanded
     }}>
       {children}
     </AppContext.Provider>
@@ -553,6 +560,18 @@ const PostsPage = ({
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
+  const [editingPromptId, setEditingPromptId] = useState<string | null>(null)
+  const [editedPrompts, setEditedPrompts] = useState<Record<string, string>>(() => {
+    // Load edited prompts from localStorage on mount
+    const saved: Record<string, string> = {}
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('edited-prompt-')) {
+        const templateKey = key.replace('edited-prompt-', '')
+        saved[templateKey] = localStorage.getItem(key) || ''
+      }
+    })
+    return saved
+  })
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -574,6 +593,37 @@ const PostsPage = ({
     } catch (error) {
       console.error('Error updating post status:', error)
     }
+  }
+
+  // Get all templates, filtered by goal if selected
+  const getTemplates = () => {
+    if (!selectedIndustry || !selectedServiceType) return []
+    
+    const serviceType = (aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType]
+    if (!serviceType) return []
+    
+    const goals = serviceType.goals || {}
+    
+    // If no goal selected, return all templates from all goals
+    if (!selectedGoal) {
+      const allTemplates: any[] = []
+      Object.entries(goals).forEach(([goalKey, goal]: [string, any]) => {
+        goal.templates.forEach((template: any) => {
+          allTemplates.push({ ...template, goalKey, goalName: goal.name })
+        })
+      })
+      return allTemplates
+    }
+    
+    // If goal selected, return only templates from that goal
+    const goal = goals[selectedGoal]
+    if (!goal) return []
+    
+    return goal.templates.map((template: any) => ({
+      ...template,
+      goalKey: selectedGoal,
+      goalName: goal.name
+    }))
   }
 
   // Filter posts - ONLY show posts for the selected group
@@ -703,18 +753,17 @@ const postTypeIcons = {
                     className="text-sm px-4 py-2 rounded-lg transition-colors"
                   style={{ 
                       backgroundColor: 'transparent',
-                    border: '1px solid var(--border-neutral)',
                     color: 'var(--text-secondary)'
                   }}
                 >
                     ← Back
                 </button>
           </div>
-                <div className="mb-3 p-2 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                <div className="mb-3">
                   <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {(aiTemplateStructure as any)[selectedIndustry].icon} {(aiTemplateStructure as any)[selectedIndustry].name}
+                    {(aiTemplateStructure as any)[selectedIndustry].name}
                   </span>
-          </div>
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[600px] overflow-y-auto">
                   {Object.entries((aiTemplateStructure as any)[selectedIndustry].serviceTypes || {}).map(([key, serviceType]: [string, any]) => (
                     <button
@@ -738,115 +787,163 @@ const postTypeIcons = {
               </>
             )}
 
-            {/* STEP 3: Choose Your Goal */}
-            {selectedIndustry && selectedServiceType && !selectedGoal && (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    Choose Your Goal
-                  </h3>
-                    <button
-                    onClick={() => setSelectedServiceType(null)}
-                    className="text-sm px-4 py-2 rounded-lg transition-colors"
-                      style={{
-                      backgroundColor: 'transparent',
-                      border: '1px solid var(--border-neutral)',
-                      color: 'var(--text-secondary)'
-                    }}
-                  >
-                    ← Back
-                  </button>
-                </div>
-                <div className="mb-3 p-2 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {(aiTemplateStructure as any)[selectedIndustry].name} → {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].name}
-                  </span>
-              </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {Object.entries((aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals).map(([key, goal]: [string, any]) => (
-                    <button
-                      key={key}
-                      onClick={() => setSelectedGoal(key)}
-                      className="p-4 rounded-lg text-left transition-all hover:border-[#EAB308]"
-                          style={{
-                        backgroundColor: 'var(--input-bg)',
-                      border: '1px solid var(--border-neutral)'
-                          }}
-                        >
-                      <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-                        {goal.name}
-              </div>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* STEP 4: Select Template */}
-            {selectedIndustry && selectedServiceType && selectedGoal && (
+            {/* STEP 3: Select Template */}
+            {selectedIndustry && selectedServiceType && (
               <>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                     Select Template
                   </h3>
-                                  <button
+                  <button
                     onClick={() => {
+                      setSelectedServiceType(null)
                       setSelectedGoal(null)
                       setSelectedTemplateId(null)
                     }}
                     className="text-sm px-4 py-2 rounded-lg transition-colors"
                     style={{
                       backgroundColor: 'transparent',
-                      border: '1px solid var(--border-neutral)',
                       color: 'var(--text-secondary)'
                     }}
                   >
                     ← Back
-                                  </button>
+                  </button>
                 </div>
-                <div className="mb-3 p-2 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                <div className="mb-4 flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                     {(aiTemplateStructure as any)[selectedIndustry].name}
-                                    </span>
+                  </span>
                   <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>→</span>
                   <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                     {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].name}
-                                    </span>
-                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>→</span>
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[selectedGoal].name}
                   </span>
-            </div>
+                  <span className="text-sm ml-auto">
+                    <select
+                      value={selectedGoal || ''}
+                      onChange={(e) => setSelectedGoal(e.target.value || null)}
+                      className="px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer"
+                      style={{
+                        backgroundColor: 'var(--input-bg)',
+                        border: '1px solid var(--border-neutral)',
+                        color: 'var(--text-primary)',
+                        outline: 'none'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = '#3B82F6'
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = 'var(--border-neutral)'
+                      }}
+                    >
+                      <option value="">All</option>
+                      {Object.entries((aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals || {}).map(([key, goal]: [string, any]) => (
+                        <option key={key} value={key}>
+                          {goal.name.replace(/[🎁💡💰⚡🔨⚠️⭐📍📧🏆]/g, '').trim()}
+                        </option>
+                      ))}
+                    </select>
+                  </span>
+                </div>
 
                 {/* Template Grid */}
                 <div className="grid grid-cols-2 gap-3 pb-8">
-                    {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[selectedGoal].templates.map((template: any) => {
+                    {getTemplates().map((template: any) => {
                       const isProcessing = selectedTemplateId === template.id
+                      // Find the actual goal key for this template
+                      const templateGoalKey = template.goalKey || selectedGoal || Object.keys((aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals || {}).find((goalKey: string) => {
+                        const goal = (aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[goalKey]
+                        return goal?.templates?.some((t: any) => t.id === template.id)
+                      })
                       return (
                         <div 
-                          key={template.id}
-                          className="p-4 rounded-lg transition-all hover:shadow-lg"
+                          key={`${template.goalKey || 'all'}-${template.id}`}
+                          className="p-4 rounded-lg transition-all hover:shadow-lg flex flex-col"
                                       style={{ 
                             backgroundColor: 'var(--input-bg)',
                             borderWidth: '1px',
                             borderStyle: 'solid',
-                            borderColor: 'var(--border-neutral)'
+                            borderColor: 'var(--border-neutral)',
+                            minHeight: '180px'
                           }}
                         >
-                          <div className="mb-3">
-                            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-                              {template.name}
-                  </h3>
-                            <p className="text-xs line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
-                              {template.prompt.split('.')[0]}...
-                            </p>
+                          <div className="mb-3 flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                {template.name}
+                              </h3>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const templateKey = `${template.goalKey || 'all'}-${template.id}`
+                                  if (editingPromptId === templateKey) {
+                                    setEditingPromptId(null)
+                                  } else {
+                                    setEditingPromptId(templateKey)
+                                  }
+                                }}
+                                className="p-1 rounded hover:bg-white/10 transition-colors"
+                                style={{ color: 'var(--text-secondary)' }}
+                                title="Edit prompt"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                            </div>
+                            {editingPromptId === `${template.goalKey || 'all'}-${template.id}` ? (
+                              <textarea
+                                value={editedPrompts[`${template.goalKey || 'all'}-${template.id}`] || template.prompt}
+                                onChange={(e) => {
+                                  const templateKey = `${template.goalKey || 'all'}-${template.id}`
+                                  setEditedPrompts(prev => ({
+                                    ...prev,
+                                    [templateKey]: e.target.value
+                                  }))
+                                }}
+                                className="w-full p-2 rounded text-xs leading-relaxed resize-none"
+                                style={{ 
+                                  backgroundColor: isDarkMode ? '#2A2A2A' : '#F9FAFB',
+                                  border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`,
+                                  color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)',
+                                  minHeight: '100px'
+                                }}
+                                onBlur={() => {
+                                  // Save edited prompt to localStorage for persistence
+                                  const templateKey = `${template.goalKey || 'all'}-${template.id}`
+                                  if (editedPrompts[templateKey]) {
+                                    localStorage.setItem(`edited-prompt-${templateKey}`, editedPrompts[templateKey])
+                                  }
+                                }}
+                                autoFocus
+                              />
+                            ) : (
+                              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                                {editedPrompts[`${template.goalKey || 'all'}-${template.id}`] || template.prompt}
+                              </p>
+                            )}
                           </div>
                           
                           <div className="flex gap-2">
                                   <button
                               onClick={() => {
+                                if (!templateGoalKey) {
+                                  toast.error('Unable to determine template goal')
+                                  return
+                                }
+                                
+                                // Close edit mode if open and save
+                                const templateKey = `${template.goalKey || 'all'}-${template.id}`
+                                if (editingPromptId === templateKey) {
+                                  setEditingPromptId(null)
+                                  if (editedPrompts[templateKey]) {
+                                    localStorage.setItem(`edited-prompt-${templateKey}`, editedPrompts[templateKey])
+                                  }
+                                }
+                                
                                 const company = companies.find(c => c.id === selectedCompanyId)
                                 const companyName = company?.name || 'Your Company'
+                                
+                                // Use edited prompt if available, otherwise use original
+                                const promptToUse = editedPrompts[templateKey] || template.prompt
+                                const finalPrompt = promptToUse.replace('{company}', companyName)
                                 
                                 setSelectedTemplateId(template.id)
                                 
@@ -864,7 +961,8 @@ const postTypeIcons = {
                                 setIsGeneratingAI(true)
                                 
                                 setTimeout(async () => {
-                                  // Mock content - replace with actual AI API call
+                                  // Mock content - replace with actual AI API call using finalPrompt
+                                  // In real implementation, call: await generateAIContent(finalPrompt)
                                   const mockContent = `${companyName} - Premium Service Alert!
 
 Experience top-quality service that exceeds your expectations.
@@ -884,11 +982,11 @@ Call us today for a free quote!
                                   
                                   setIsGeneratingAI(false)
                                   setSelectedTemplateId(null) // Only clear the selected template, keep the flow selections
-                                  toast.success('Post generated!')
+                                  toast.success('Post generated! Opening composer...')
                                 }, 1500)
                               }}
-                              disabled={false}
-                              className="flex-1 h-8 px-3 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+                              disabled={isProcessing && isGeneratingAI}
+                              className="w-full h-8 px-3 rounded-lg text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         style={{ 
                                 backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
                                 color: isDarkMode ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.7)',
@@ -904,74 +1002,13 @@ Call us today for a free quote!
                               }}
                             >
                               {isProcessing && isGeneratingAI ? (
-                                <span className="flex items-center gap-1.5">
+                                <span className="flex items-center gap-1.5 justify-center">
                                   <span className="inline-block w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin"></span>
                                   Generating
                                 </span>
                               ) : (
-                                'Edit & tweet'
+                                'Generate & Edit'
                               )}
-                                      </button>
-                                      <button
-                              onClick={() => {
-                                const company = companies.find(c => c.id === selectedCompanyId)
-                                const companyName = company?.name || 'Your Company'
-                                
-                                setSelectedTemplateId(template.id)
-                                setIsGeneratingAI(true)
-                                
-                                setTimeout(async () => {
-                                  // Mock content for queue
-                                  const mockContent = `${companyName} - Premium Service Alert!
-
-Experience top-quality service that exceeds your expectations.
-
-Why choose us?
-• Professional & certified team
-• Fast, reliable service
-• Customer satisfaction guaranteed
-
-Call us today for a free quote!
-
-#HomeServices #LocalBusiness #QualityService`
-                                  
-                                  // Add to queue logic here
-                                  const newPost = {
-                                    id: Date.now().toString(),
-                                    content: mockContent,
-                                    status: 'scheduled' as const,
-                                    company_id: selectedCompanyId || '',
-                                    group_id: selectedGroupId || '',
-                                    created_at: new Date().toISOString(),
-                                    scheduled_for: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Schedule for tomorrow
-                                  }
-                                  
-                                  if (addPost) {
-                                    addPost(newPost)
-                                  }
-                                  
-                                  toast.success('Post added to queue!')
-                                  setIsGeneratingAI(false)
-                                  setSelectedTemplateId(null) // Only clear the selected template, keep the flow selections
-                                }, 1500)
-                              }}
-                              disabled={false}
-                              className="flex-1 h-8 px-3 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
-                              style={{
-                                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-                                color: isDarkMode ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.7)',
-                                border: 'none'
-                              }}
-                                        onMouseEnter={(e) => {
-                                if (!isGeneratingAI || !isProcessing) {
-                                  e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.09)'
-                                }
-                                        }}
-                                        onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
-                                        }}
-                                      >
-                              Add to Queue
                                       </button>
                                     </div>
                                 </div>
@@ -1659,7 +1696,7 @@ const Sidebar = ({ onAddGroup, onEditGroup: _onEditGroup }: {
   onAddGroup: () => void, 
   onEditGroup: (group: Group) => void
 }) => {
-  const { companies, groups, posts, selectedCompanyId, selectedGroupId, setSelectedGroupId } = useApp()
+  const { companies, groups, posts, selectedCompanyId, selectedGroupId, setSelectedGroupId, isNavExpanded } = useApp()
   const [searchQuery, setSearchQuery] = useState('')
   const [healthFilter, setHealthFilter] = useState<'all' | 'safe' | 'caution' | 'danger'>('all')
   const navigate = useNavigate()
@@ -1693,8 +1730,9 @@ const Sidebar = ({ onAddGroup, onEditGroup: _onEditGroup }: {
 
   return (
     <aside 
-      className={`w-80 border-r flex flex-col overflow-hidden fixed left-16 top-0 bottom-0 z-50 transform transition-transform duration-300 ease-out`}
+      className={`w-80 border-r flex flex-col overflow-hidden fixed top-0 bottom-0 z-50 transform transition-all duration-300 ease-out`}
       style={{ 
+        left: isNavExpanded ? '224px' : '64px',
         backgroundColor: '#111111', 
         borderColor: '#1A1A1A', 
         boxShadow: '2px 0 8px rgba(0, 0, 0, 0.5)',
@@ -1787,6 +1825,43 @@ const Sidebar = ({ onAddGroup, onEditGroup: _onEditGroup }: {
           </button>
         </div>
       </div>
+      
+      {/* "All Groups" button - fixed at top - only show on Dashboard */}
+      {filteredGroups.length > 0 && location.pathname === '/' && (
+        <div className="px-2 py-1 border-b flex-shrink-0" style={{ borderColor: 'var(--concrete-gray)' }}>
+          <div
+            onClick={() => {
+              setSelectedGroupId(null)
+              window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+              document.documentElement.scrollTop = 0
+              document.body.scrollTop = 0
+              const mainElement = document.getElementById('main-content')
+              if (mainElement) {
+                mainElement.scrollTop = 0
+              }
+            }}
+            className={`
+              group relative p-3 cursor-pointer transition-all duration-200 rounded-lg border
+            ${!selectedGroupId 
+              ? 'bg-[#336699]/20 border-[#336699] shadow-lg' 
+              : 'border-transparent hover:bg-white/5 hover:border-white/10'
+            }
+          `}
+            style={{
+              backgroundColor: !selectedGroupId ? 'rgba(51, 102, 153, 0.15)' : '#1A1A1A',
+              borderColor: !selectedGroupId ? '#336699' : '#2A2A2A'
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm text-white/90">
+                  All Groups
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
             
       {/* Groups List */}
       <div className="flex-1 overflow-hidden" style={{ overscrollBehavior: 'contain' }}>
@@ -1836,6 +1911,7 @@ const Sidebar = ({ onAddGroup, onEditGroup: _onEditGroup }: {
               const group = filteredGroups[index]
             const isSelected = selectedGroupId === group.id
             const groupPosts = posts.filter(p => p.group_id === group.id)
+            const scheduledCount = groupPosts.filter(p => p.status === 'scheduled' && p.scheduled_for).length
             const health = getGroupHealthWithRealData(group, posts)
                                   
             return (
@@ -1845,11 +1921,11 @@ const Sidebar = ({ onAddGroup, onEditGroup: _onEditGroup }: {
                 id={`group-${group.id}`}
                 onClick={() => {
                   setSelectedGroupId(group.id)
-                  // Only navigate to /posts if we're not already on /posts
-                  if (location.pathname !== '/posts') {
+                  // Only navigate if we're not already on Posts or Dashboard
+                  if (location.pathname !== '/posts' && location.pathname !== '/') {
                     navigate('/posts')
                   } else {
-                    // Scroll to top when already on posts page
+                    // Scroll to top when already on posts or dashboard page
                     window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
                     document.documentElement.scrollTop = 0
                     document.body.scrollTop = 0
@@ -1907,12 +1983,22 @@ const Sidebar = ({ onAddGroup, onEditGroup: _onEditGroup }: {
                     <span className="text-white/50">
                       {group.audience_size && group.audience_size >= 1000 ? `${(group.audience_size/1000).toFixed(0)}k` : group.audience_size || '-'} members
                         </span>
-                    <span className="font-medium px-1.5 py-0.5 rounded" style={{ 
-                      backgroundColor: `${health.color}20`, 
-                      color: health.color 
-                    }}>
-                      {health.postsThisWeek}/3 this week
+                    <div className="flex items-center gap-2">
+                      {scheduledCount > 0 && (
+                        <span className="font-medium px-1.5 py-0.5 rounded" style={{ 
+                          backgroundColor: 'rgba(59, 130, 246, 0.2)', 
+                          color: '#3B82F6' 
+                        }}>
+                          📅 {scheduledCount}
                         </span>
+                      )}
+                      <span className="font-medium px-1.5 py-0.5 rounded" style={{ 
+                        backgroundColor: `${health.color}20`, 
+                        color: health.color 
+                      }}>
+                        {health.postsThisWeek}/3 this week
+                          </span>
+                    </div>
                   </div>
               </div>
           </div>
@@ -1927,7 +2013,7 @@ const Sidebar = ({ onAddGroup, onEditGroup: _onEditGroup }: {
 
 // Left Navigation Component - Sleek Vertical Sidebar
 const LeftNavigation = ({ onAddCompany, onToggleSidebar }: { onAddCompany: () => void, onToggleSidebar?: () => void }) => {
-  const { companies, selectedCompanyId, setSelectedCompanyId, isDarkMode, toggleTheme } = useApp()
+  const { companies, selectedCompanyId, setSelectedCompanyId, isDarkMode, toggleTheme, isNavExpanded, setIsNavExpanded } = useApp()
   const { user, logout, isAuthenticated } = useAuth()
   const location = useLocation()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
@@ -1935,6 +2021,11 @@ const LeftNavigation = ({ onAddCompany, onToggleSidebar }: { onAddCompany: () =>
   const [isHovered, setIsHovered] = useState(false)
   const userMenuRef = React.useRef<HTMLDivElement>(null)
   const companySelectorRef = React.useRef<HTMLDivElement>(null)
+  
+  // Sync local hover state with global nav expansion state
+  useEffect(() => {
+    setIsNavExpanded(isHovered)
+  }, [isHovered, setIsNavExpanded])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -2166,7 +2257,7 @@ const LeftNavigation = ({ onAddCompany, onToggleSidebar }: { onAddCompany: () =>
 // Quick Compose Drawer Component - Twitter/X Style
 const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selectedCompanyId, selectedGroupId, initialContent, initialCompanyId, initialGroupId, posts, isDarkMode = true, updatePost, deletePost, editingPost, setEditingPost }: {
   onClose: () => void
-  onPostCreated: (post: Post) => void
+  onPostCreated: (post: Post) => Promise<Post | null> | void
   companies: Company[]
   groups: Group[]
   selectedCompanyId: string | null
@@ -2189,21 +2280,39 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
   const [isClosing, setIsClosing] = useState(false)
   const [showPostMenu, setShowPostMenu] = useState<string | null>(null)
   const [postToDelete, setPostToDelete] = useState<Post | null>(null)
-  const [isGenerating, setIsGenerating] = useState(initialContent === '')
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [postToSchedule, setPostToSchedule] = useState<Post | null>(null)
+  const [scheduleDate, setScheduleDate] = useState('')
+  const [scheduleTime, setScheduleTime] = useState('')
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
+  // Initialize isGenerating based on whether we have empty string (loading) or actual content
+  const [isGenerating, setIsGenerating] = useState(() => {
+    // Empty string means generation is starting
+    if (initialContent === '') return true
+    // Undefined or null means no content yet, also show loading
+    if (initialContent === undefined || initialContent === null) return false
+    // Has content, not generating
+    return false
+  })
   
   // Update content when initialContent changes
   useEffect(() => {
+    console.log('📝 initialContent changed:', initialContent, 'type:', typeof initialContent)
+    
     if (initialContent !== undefined) {
       if (initialContent === '') {
         // Empty string means generation is starting
+        console.log('✅ Setting isGenerating to TRUE (empty string detected)')
         setIsGenerating(true)
         setContent('')
-      } else {
+      } else if (initialContent && initialContent.length > 0) {
         // Content received, generation complete
+        console.log('✅ Setting isGenerating to FALSE (content received):', initialContent.substring(0, 50))
         setIsGenerating(false)
         setContent(initialContent)
       }
     }
+    
     if (initialCompanyId) {
       setCompanyId(initialCompanyId)
     }
@@ -2231,29 +2340,192 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
     }, 300)
   }
 
+  const handleNewDraft = () => {
+    // Clear content
+    setContent('')
+    // Cancel any editing
+    if (setEditingPost) {
+      setEditingPost(null)
+    }
+    // Reset to default company/group from sidebar
+    setCompanyId(selectedCompanyId || '')
+    setGroupId(selectedGroupId || '')
+    // Switch to compose tab
+    setActiveTab('compose')
+    // Reset generating state
+    setIsGenerating(false)
+    // Reset advanced options
+    setShowAdvanced(false)
+    // Focus textarea after a brief delay to ensure it's rendered
+    setTimeout(() => {
+      textareaRef.current?.focus()
+    }, 100)
+  }
+
   const handlePost = async () => {
     if (!content.trim() || !groupId || !companyId) {
       toast.error('Please fill in all required fields')
       return
     }
 
-    const newPost: Post = {
-      id: Date.now().toString(),
-      title: 'Untitled Post',
-      content: content.trim(),
-      group_id: groupId,
-      company_id: companyId,
-      status: 'draft',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }
+    try {
+      // If editing an existing post, update it
+      if (editingPost && updatePost) {
+        await updatePost(editingPost.id, {
+          content: content.trim(),
+          group_id: groupId,
+          company_id: companyId,
+          status: 'draft',
+          updated_at: new Date().toISOString()
+        })
+        toast.success('Draft updated!')
+        // Clear editing state
+        if (setEditingPost) {
+          setEditingPost(null)
+        }
+        // Clear content and close drawer after a brief delay
+        setTimeout(() => {
+          setContent('')
+          handleClose()
+        }, 500)
+      } else {
+        // Create new draft - use addPost directly from context if available
+        // The onPostCreated callback expects a full Post, but addPost needs Omit<Post, ...>
+        // So we'll call addPost directly if we can access it, otherwise use the callback
+        const postData = {
+          title: content.trim().substring(0, 50) + (content.trim().length > 50 ? '...' : ''),
+          content: content.trim(),
+          group_id: groupId,
+          company_id: companyId,
+          status: 'draft' as const,
+          post_type: 'value_post' as const,
+          leads_count: 0,
+          likes: 0,
+          comments: 0,
+          shares: 0
+        }
 
-    onPostCreated(newPost)
-    toast.success('Draft created!')
+        // Call onPostCreated which will handle adding the post
+        // The callback receives a Post but will extract the needed fields
+        await onPostCreated({
+          ...postData,
+          id: '', // Will be set by backend
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        } as Post)
+        
+        // Clear content after saving
+        setContent('')
+        // Switch to drafts tab to show the new draft
+        setActiveTab('drafts')
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error)
+      toast.error('Failed to save draft. Please try again.')
+    }
   }
 
-  const handleAddToQueue = () => {
-    toast('Queue functionality coming soon!', { icon: 'ℹ️' })
+  const handleSchedulePost = (post: Post) => {
+    setPostToSchedule(post)
+    // Set default to tomorrow at 9 AM
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    tomorrow.setHours(9, 0, 0, 0)
+    setScheduleDate(tomorrow.toISOString().split('T')[0])
+    setScheduleTime('09:00')
+    setShowScheduleModal(true)
+  }
+
+  const handleConfirmSchedule = () => {
+    if (!postToSchedule || !scheduleDate || !scheduleTime || !updatePost) return
+    
+    const scheduledDateTime = new Date(`${scheduleDate}T${scheduleTime}`)
+    
+    if (scheduledDateTime < new Date()) {
+      toast.error('Cannot schedule in the past')
+      return
+    }
+    
+    updatePost(postToSchedule.id, {
+      status: 'scheduled',
+      scheduled_for: scheduledDateTime.toISOString()
+    })
+    
+    toast.success('Post scheduled!')
+    setShowScheduleModal(false)
+    setPostToSchedule(null)
+    setScheduleDate('')
+    setScheduleTime('')
+  }
+
+  const handleMarkAsSent = async (post: Post) => {
+    if (!updatePost) return
+    
+    await updatePost(post.id, {
+      status: 'posted',
+      posted_at: new Date().toISOString()
+    })
+    
+    toast.success('Post marked as sent!')
+  }
+
+  const handleAddToQueue = async () => {
+    if (!content.trim() || !groupId || !companyId) {
+      toast.error('Please enter content and select a group')
+      return
+    }
+    
+    // If editing an existing post, schedule it directly
+    if (editingPost) {
+      handleSchedulePost(editingPost)
+      return
+    }
+    
+    // For new content: save as draft first, then open schedule modal
+    try {
+      const postData = {
+        title: content.trim().substring(0, 50) + (content.trim().length > 50 ? '...' : ''),
+        content: content.trim(),
+        group_id: groupId,
+        company_id: companyId,
+        status: 'draft' as const,
+        post_type: 'value_post' as const,
+        leads_count: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0
+      }
+
+      // Create draft first - await the result
+      const result = await onPostCreated({
+        ...postData,
+        id: Date.now().toString(), // Temporary ID
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      } as Post)
+      
+      // If we got a result, schedule it directly
+      if (result) {
+        handleSchedulePost(result)
+      } else {
+        // Fallback: try to find it in the posts array
+        const newDraft = (posts || []).find(p => 
+          p.content === content.trim() && 
+          p.status === 'draft' && 
+          p.group_id === groupId &&
+          p.company_id === companyId
+        )
+        
+        if (newDraft) {
+          handleSchedulePost(newDraft)
+        } else {
+          toast('Draft saved! Please schedule it from the Drafts tab', { icon: '💡', duration: 4000 })
+        }
+      }
+    } catch (error) {
+      console.error('Error creating draft:', error)
+      toast.error('Failed to save draft. Please try again.')
+    }
   }
 
   return (
@@ -2337,53 +2609,39 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
                   Your content
                 </h3>
                     <button
+                  onClick={handleNewDraft}
                   style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
-                  className="text-xs hover:opacity-90 flex items-center gap-1"
+                  className="text-xs hover:opacity-90 flex items-center gap-1 cursor-pointer"
                 >
                   <span>+</span>
                   <span className="underline">New draft</span>
                 </button>
             </div>
 
-              {/* Group Selector */}
-              <div className="mb-3">
-                <select
-                  value={groupId}
-                  onChange={(e) => setGroupId(e.target.value)}
-                  className="w-full px-2 py-2 rounded text-xs"
-                  style={{ 
-                    backgroundColor: isDarkMode ? '#2A2A2A' : '#F9FAFB', 
-                    border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`, 
-                    color: isDarkMode ? '#FFFFFF' : '#000000' 
-                  }}
-                >
-                  <option value="">Select Group</option>
-                  {groups
-                    .filter(g => !selectedCompanyId || g.company_id === selectedCompanyId)
-                    .map(group => (
-                      <option key={group.id} value={group.id}>{group.name}</option>
-                    ))}
-                </select>
-            </div>
-
               {/* Textarea or Loading State */}
               {isGenerating ? (
-                <div className="w-full h-48 p-3 rounded-lg flex items-center justify-center" style={{ 
+                <div className="w-full h-48 p-6 rounded-lg flex flex-col items-center justify-center" style={{ 
                   backgroundColor: isDarkMode ? '#2A2A2A' : '#F9FAFB', 
                   border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`
                 }}>
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ 
-                      borderColor: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-                      borderTopColor: '#EAB308'
-                    }} />
-                    <span className="text-sm font-medium" style={{ color: '#EAB308' }}>
-                      Generating your post...
-                    </span>
-          </div>
+                  <div className="flex items-center justify-center">
+                    <div className="relative w-8 h-8 flex items-center justify-center">
+                      <div className="absolute w-full h-full rounded-full border-2 pulse-ring-animation" style={{ 
+                        borderColor: 'rgba(24, 119, 242, 0.4)'
+                      }} />
+                      <div className="absolute w-full h-full rounded-full border-2 pulse-ring-animation" style={{ 
+                        borderColor: 'rgba(24, 119, 242, 0.4)',
+                        animationDelay: '0.5s'
+                      }} />
+                      <div className="absolute w-2 h-2 rounded-full" style={{ 
+                        backgroundColor: 'rgba(24, 119, 242, 0.6)'
+                      }} />
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <textarea
+                  ref={textareaRef}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Write here.&#10;&#10;&#10;Skip 3 lines to start a thread."
@@ -2448,11 +2706,18 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
                 <div className="flex items-center gap-2">
               <button
                     onClick={handlePost}
-                    className="px-3 py-1.5 rounded text-xs font-medium transition-colors flex-1"
+                    disabled={!content.trim() || !groupId || !companyId}
+                    className="px-3 py-1.5 rounded text-xs font-medium transition-colors flex-1 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ 
-                      backgroundColor: isDarkMode ? '#2A2A2A' : '#F9FAFB', 
-                      color: isDarkMode ? '#888888' : '#666666', 
-                      border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}` 
+                      backgroundColor: (!content.trim() || !groupId || !companyId)
+                        ? (isDarkMode ? '#2A2A2A' : '#F9FAFB')
+                        : (isDarkMode ? '#3B82F6' : '#3B82F6'), 
+                      color: (!content.trim() || !groupId || !companyId)
+                        ? (isDarkMode ? '#888888' : '#666666')
+                        : '#FFFFFF', 
+                      border: (!content.trim() || !groupId || !companyId)
+                        ? `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`
+                        : 'none'
                     }}
                   >
                     Save Draft
@@ -2466,11 +2731,16 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
                 </div>
                 <button
                   onClick={handleAddToQueue}
-                  className="w-full px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-between"
+                  disabled={!content.trim() || !groupId || !companyId || (!editingPost && !content.trim())}
+                  className="w-full px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: '#336699', color: '#FFFFFF' }}
+                  title={editingPost ? "Schedule this post to add it to your queue" : "Save as draft first, then schedule from Drafts tab"}
                 >
-                  <span>Add to Queue</span>
-                  <span className="text-[10px] opacity-80">Feb 28th, 11:57 AM</span>
+                  <span className="flex items-center gap-1.5">
+                    <Calendar size={12} />
+                    Add to Queue
+                  </span>
+                  <span className="text-[10px] opacity-80">Schedule</span>
                 </button>
               </div>
               )}
@@ -2673,29 +2943,52 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
                             onClick={(e) => e.stopPropagation()}
                           >
                             {updatePost && (
-                    <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setContent(post.content || '')
-                                  setCompanyId(post.company_id || '')
-                                  setGroupId(post.group_id || '')
-                                  setActiveTab('compose')
-                                  if (setEditingPost) setEditingPost(post)
-                                  setShowPostMenu(null)
-                                }}
-                                className="w-full px-2 py-1.5 text-left text-xs transition-colors"
-                      style={{ 
-                        color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
-                      }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'transparent'
-                                }}
-                              >
-                                Edit
-                              </button>
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setContent(post.content || '')
+                                    setCompanyId(post.company_id || '')
+                                    setGroupId(post.group_id || '')
+                                    setActiveTab('compose')
+                                    if (setEditingPost) setEditingPost(post)
+                                    setShowPostMenu(null)
+                                  }}
+                                  className="w-full px-2 py-1.5 text-left text-xs transition-colors flex items-center gap-1.5"
+                                  style={{ 
+                                    color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent'
+                                  }}
+                                >
+                                  <Pencil size={12} />
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleSchedulePost(post)
+                                    setShowPostMenu(null)
+                                  }}
+                                  className="w-full px-2 py-1.5 text-left text-xs transition-colors flex items-center gap-1.5"
+                                  style={{ 
+                                    color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent'
+                                  }}
+                                >
+                                  <Calendar size={12} />
+                                  Schedule
+                                </button>
+                              </>
                             )}
                             {deletePost && (
                               <button
@@ -2743,7 +3036,7 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
             <div>
               {(() => {
                 const scheduledPosts = (posts || []).filter(p => 
-                  (p.status === 'ready_to_post' || p.status === 'pending_approval') && (!selectedGroupId || p.group_id === selectedGroupId)
+                  p.status === 'scheduled' && (!selectedGroupId || p.group_id === selectedGroupId)
                 )
                 if (scheduledPosts.length === 0) {
                   return (
@@ -2803,29 +3096,54 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
                             onClick={(e) => e.stopPropagation()}
                           >
                             {updatePost && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setContent(post.content || '')
-                                  setCompanyId(post.company_id || '')
-                                  setGroupId(post.group_id || '')
-                                  setActiveTab('compose')
-                                  if (setEditingPost) setEditingPost(post)
-                                  setShowPostMenu(null)
-                                }}
-                                className="w-full px-2 py-1.5 text-left text-xs transition-colors"
-                                style={{ 
-                                  color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'transparent'
-                                }}
-                              >
-                                Edit
-                              </button>
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setContent(post.content || '')
+                                    setCompanyId(post.company_id || '')
+                                    setGroupId(post.group_id || '')
+                                    setActiveTab('compose')
+                                    if (setEditingPost) setEditingPost(post)
+                                    setShowPostMenu(null)
+                                  }}
+                                  className="w-full px-2 py-1.5 text-left text-xs transition-colors flex items-center gap-1.5"
+                                  style={{ 
+                                    color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent'
+                                  }}
+                                >
+                                  <Pencil size={12} />
+                                  Edit
+                                </button>
+                                {post.scheduled_for && new Date(post.scheduled_for) <= new Date() && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleMarkAsSent(post)
+                                      setShowPostMenu(null)
+                                    }}
+                                    className="w-full px-2 py-1.5 text-left text-xs transition-colors flex items-center gap-1.5"
+                                    style={{ 
+                                      color: '#EAB308'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'rgba(234, 179, 8, 0.1)'
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'transparent'
+                                    }}
+                                  >
+                                    <Send size={12} />
+                                    Mark as Sent
+                                  </button>
+                                )}
+                              </>
                             )}
                             {deletePost && (
                               <button
@@ -2844,7 +3162,7 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
                               >
                                 Delete
                               </button>
-              )}
+                            )}
             </div>
           )}
 
@@ -2859,8 +3177,20 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
                           style={{ color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
                         >
                           <span>{groups.find(g => g.id === post.group_id)?.name || 'Unknown'}</span>
-                          <span>{new Date(post.created_at).toLocaleDateString()}</span>
-        </div>
+                          {post.scheduled_for ? (
+                            <span className="flex items-center gap-1">
+                              <Clock size={10} />
+                              {new Date(post.scheduled_for).toLocaleString(undefined, { 
+                                month: 'short', 
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          ) : (
+                            <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -3000,6 +3330,96 @@ const QuickComposeDrawer = ({ onClose, onPostCreated, companies, groups, selecte
         )}
       </div>
     </div>
+
+      {/* Schedule Modal */}
+      {showScheduleModal && postToSchedule && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[250]">
+          <div 
+            className="rounded-lg p-4 w-full max-w-sm mx-4 shadow-2xl"
+            style={{ 
+              backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF', 
+              border: `1px solid ${isDarkMode ? '#333333' : '#E5E7EB'}` 
+            }}
+          >
+            <h2 
+              className="text-sm font-medium mb-4 flex items-center gap-2"
+              style={{ color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)' }}
+            >
+              <Calendar size={16} />
+              Schedule Post
+            </h2>
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)' }}>
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2 rounded text-xs"
+                  style={{ 
+                    backgroundColor: isDarkMode ? '#2A2A2A' : '#F9FAFB',
+                    border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`,
+                    color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
+                  }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)' }}>
+                  Time
+                </label>
+                <input
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                  className="w-full px-3 py-2 rounded text-xs"
+                  style={{ 
+                    backgroundColor: isDarkMode ? '#2A2A2A' : '#F9FAFB',
+                    border: `1px solid ${isDarkMode ? '#404040' : '#E5E7EB'}`,
+                    color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)'
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setShowScheduleModal(false)
+                  setPostToSchedule(null)
+                  setScheduleDate('')
+                  setScheduleTime('')
+                }}
+                className="px-3 py-1.5 rounded text-xs font-medium transition-colors"
+                style={{ 
+                  backgroundColor: 'transparent',
+                  color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSchedule}
+                disabled={!scheduleDate || !scheduleTime}
+                className="px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ 
+                  backgroundColor: '#336699',
+                  color: '#FFFFFF'
+                }}
+              >
+                Schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {postToDelete && (
@@ -3449,7 +3869,7 @@ const Layout = ({
   setEditingGroup: (group: Group | null) => void
 }) => {
   // ✅ ALL HOOKS MUST BE AT THE TOP (before any returns)
-  const { addGroup, updateGroup, addCompany, updateCompany, loading, posts, groups, selectedCompanyId, setSelectedGroupId, addPost, updatePost, deletePost, selectedGroupId: contextSelectedGroupId, companies, isDarkMode } = useApp()
+  const { addGroup, updateGroup, addCompany, updateCompany, loading, posts, groups, selectedCompanyId, setSelectedGroupId, addPost, updatePost, deletePost, selectedGroupId: contextSelectedGroupId, companies, isDarkMode, isNavExpanded } = useApp()
   const location = useLocation()
   const [showAddGroup, setShowAddGroup] = useState(false)
   const [showAddCompany, setShowAddCompany] = useState(false)
@@ -3462,10 +3882,11 @@ const Layout = ({
   const [editingPost, setEditingPost] = useState<Post | null>(null)
 
   const isPostsPage = location.pathname === '/posts'
+  const isDashboardPage = location.pathname === '/'
 
-  // Auto-open drawer when pendingAIContent is set
+  // Auto-open drawer when pendingAIContent is set (including empty string for loading state)
   useEffect(() => {
-    if (pendingAIContent) {
+    if (pendingAIContent !== null) {
       setShowComposeDrawer(true)
     }
   }, [pendingAIContent])
@@ -3531,8 +3952,11 @@ const Layout = ({
   }
 
   const handlePostCreated = async (post: Post) => {
-    await addPost(post)
-    toast.success('Post created!')
+    // Extract only the fields needed for addPost (omit id, created_at, company, group, updated_at)
+    const { id, created_at, company, group, updated_at, ...postData } = post
+    const newPost = await addPost(postData)
+    // Note: toast is already shown in addPost function
+    return newPost
   }
 
   return (
@@ -3540,9 +3964,14 @@ const Layout = ({
       {/* Left Navigation - Always visible on all pages */}
       <LeftNavigation onAddCompany={handleAddCompany} />
       
-      <div className="flex flex-1 ml-16">
-        {/* Sidebar - Only show on Posts page */}
-        {isPostsPage && (
+      <div 
+        className="flex flex-1 transition-all duration-300 ease-out" 
+        style={{ 
+          marginLeft: isNavExpanded ? '224px' : '64px'
+        }}
+      >
+        {/* Sidebar - Show on Posts and Dashboard pages */}
+        {(isPostsPage || isDashboardPage) && (
       <Sidebar 
         onAddGroup={handleAddGroup} 
         onEditGroup={(group) => {
@@ -3557,7 +3986,7 @@ const Layout = ({
         {/* Main Content Area - Adjusts for drawer */}
         <main 
           id="main-content"
-          className={`flex-1 transition-all duration-300 ${isPostsPage ? 'ml-80' : ''} ${
+          className={`flex-1 transition-all duration-300 ${(isPostsPage || isDashboardPage) ? 'ml-80' : ''} ${
             showComposeDrawer ? 'mr-96' : ''
           }`}
         >
@@ -3632,7 +4061,7 @@ const Layout = ({
           groups={groups}
           selectedCompanyId={selectedCompanyId}
           selectedGroupId={contextSelectedGroupId}
-          initialContent={pendingAIContent || undefined}
+          initialContent={pendingAIContent !== null ? pendingAIContent : undefined}
           initialCompanyId={pendingCompanyId || undefined}
           initialGroupId={pendingGroupId || undefined}
           posts={posts}

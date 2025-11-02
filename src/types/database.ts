@@ -12,7 +12,7 @@ export type PostType =
   | 'behind_scenes'
   | 'special_offer'
 
-export type PostStatus = 'draft' | 'ready_to_post' | 'pending_approval' | 'posted' | 'leads_collected'
+export type PostStatus = 'draft' | 'ready_to_post' | 'pending_approval' | 'posted' | 'scheduled' | 'leads_collected'
 
 export type GroupStatus = 'active' | 'inactive' | 'pending'
 
@@ -98,6 +98,7 @@ export type Post = {
   created_at: string
   updated_at: string
   posted_at?: string
+  scheduled_for?: string  // ISO date string for scheduled posts
   // New analytics structure
   analytics?: PostAnalytics
   company?: Company

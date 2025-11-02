@@ -113,8 +113,38 @@ Call us today for a free quote!
   const getCurrentStep = () => {
     if (!selectedIndustry) return 1
     if (!selectedServiceType) return 2
-    if (!selectedGoal) return 3
-    return 4
+    return 3
+  }
+  
+  // Get all templates, filtered by goal if selected
+  const getTemplates = () => {
+    if (!selectedIndustry || !selectedServiceType) return []
+    
+    const serviceType = (aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType]
+    if (!serviceType) return []
+    
+    const goals = serviceType.goals || {}
+    
+    // If no goal selected, return all templates from all goals
+    if (!selectedGoal) {
+      const allTemplates: any[] = []
+      Object.entries(goals).forEach(([goalKey, goal]: [string, any]) => {
+        goal.templates.forEach((template: any) => {
+          allTemplates.push({ ...template, goalKey, goalName: goal.name })
+        })
+      })
+      return allTemplates
+    }
+    
+    // If goal selected, return only templates from that goal
+    const goal = goals[selectedGoal]
+    if (!goal) return []
+    
+    return goal.templates.map((template: any) => ({
+      ...template,
+      goalKey: selectedGoal,
+      goalName: goal.name
+    }))
   }
 
   const currentStep = getCurrentStep()
@@ -159,8 +189,7 @@ Call us today for a free quote!
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               {currentStep === 1 && 'Choose your industry to get started'}
               {currentStep === 2 && 'Select the type of service you offer'}
-              {currentStep === 3 && 'Choose your goal for this post'}
-              {currentStep === 4 && 'Select a template that fits your needs'}
+              {currentStep === 3 && 'Select a template that fits your needs'}
             </p>
           </div>
         </div>
@@ -173,7 +202,7 @@ Call us today for a free quote!
             color: '#EAB308'
           }}
         >
-          Step {currentStep} of 4
+          Step {currentStep} of 3
         </div>
 
 
@@ -219,16 +248,15 @@ Call us today for a free quote!
                   className="text-sm px-4 py-2 rounded-lg transition-colors"
                   style={{
                     backgroundColor: 'transparent',
-                    border: '1px solid var(--border-neutral)',
                     color: 'var(--text-secondary)'
                   }}
                 >
                   ← Back
                 </button>
               </div>
-              <div className="mb-3 p-2 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+              <div className="mb-3">
                 <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {(aiTemplateStructure as any)[selectedIndustry].icon} {(aiTemplateStructure as any)[selectedIndustry].name}
+                  {(aiTemplateStructure as any)[selectedIndustry].name}
                 </span>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[600px] overflow-y-auto">
@@ -254,53 +282,8 @@ Call us today for a free quote!
             </>
           )}
 
-          {/* STEP 3: Choose Your Goal */}
-          {selectedIndustry && selectedServiceType && !selectedGoal && (
-            <>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  Choose Your Goal
-                </h3>
-                <button
-                  onClick={() => setSelectedServiceType(null)}
-                  className="text-sm px-4 py-2 rounded-lg transition-colors"
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: '1px solid var(--border-neutral)',
-                    color: 'var(--text-secondary)'
-                  }}
-                >
-                  ← Back
-                </button>
-              </div>
-              <div className="mb-3 p-2 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {(aiTemplateStructure as any)[selectedIndustry].name} → {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].name}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {Object.entries((aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals).map(([key, goal]: [string, any]) => (
-                  <button
-                    key={key}
-                    onClick={() => setSelectedGoal(key)}
-                    className="p-4 rounded-lg text-left transition-all hover:border-[#EAB308]"
-                    style={{
-                      backgroundColor: 'var(--input-bg)',
-                      border: '1px solid var(--border-neutral)'
-                    }}
-                  >
-                    <div className="text-xl mb-2">{goal.icon}</div>
-                    <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      {goal.name}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* STEP 4: Select Template - TWO COLUMN LAYOUT */}
-          {selectedIndustry && selectedServiceType && selectedGoal && (
+          {/* STEP 3: Select Template - TWO COLUMN LAYOUT */}
+          {selectedIndustry && selectedServiceType && (
             <>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -308,20 +291,20 @@ Call us today for a free quote!
                 </h3>
                 <button
                   onClick={() => {
+                    setSelectedServiceType(null)
                     setSelectedGoal(null)
                     setSelectedTemplateId(null)
                   }}
                   className="text-sm px-4 py-2 rounded-lg transition-colors"
                   style={{
                     backgroundColor: 'transparent',
-                    border: '1px solid var(--border-neutral)',
                     color: 'var(--text-secondary)'
                   }}
                 >
                   ← Back
                 </button>
               </div>
-              <div className="mb-3 p-2 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+              <div className="mb-4 flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                   {(aiTemplateStructure as any)[selectedIndustry].name}
                 </span>
@@ -329,9 +312,31 @@ Call us today for a free quote!
                 <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                   {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].name}
                 </span>
-                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>→</span>
-                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[selectedGoal].name}
+                <span className="text-sm ml-auto">
+                  <select
+                    value={selectedGoal || ''}
+                    onChange={(e) => setSelectedGoal(e.target.value || null)}
+                    className="px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer"
+                    style={{
+                      backgroundColor: 'var(--input-bg)',
+                      border: '1px solid var(--border-neutral)',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#3B82F6'
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = 'var(--border-neutral)'
+                    }}
+                  >
+                    <option value="">All</option>
+                    {Object.entries((aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals || {}).map(([key, goal]: [string, any]) => (
+                      <option key={key} value={key}>
+                        {goal.name.replace(/[🎁💡💰⚡🔨⚠️⭐📍📧🏆]/g, '').trim()}
+                      </option>
+                    ))}
+                  </select>
                 </span>
               </div>
 
@@ -354,32 +359,46 @@ Call us today for a free quote!
                   {/* LEFT: Template List (60%) */}
                   <div className="flex-1 lg:flex-[6]">
                     <div className="grid grid-cols-1 gap-2 max-h-[500px] overflow-y-auto">
-                      {(aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[selectedGoal].templates.map((template: any) => {
+                      {getTemplates().map((template: any) => {
                         const isSelected = selectedTemplateId === template.id
+                        // Need to find the actual goal key for this template
+                        const templateGoalKey = template.goalKey || selectedGoal || Object.keys((aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals || {}).find((goalKey: string) => {
+                          const goal = (aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[goalKey]
+                          return goal?.templates?.some((t: any) => t.id === template.id)
+                        })
                         return (
                           <button
-                            key={template.id}
+                            key={`${template.goalKey || 'all'}-${template.id}`}
                             onMouseEnter={() => setSelectedTemplateId(template.id)}
-                            onClick={() => generatePostContent(template.id, selectedIndustry!, selectedServiceType!, selectedGoal!)}
+                            onClick={() => {
+                              if (!templateGoalKey) {
+                                toast.error('Unable to determine template goal')
+                                return
+                              }
+                              generatePostContent(template.id, selectedIndustry!, selectedServiceType!, templateGoalKey)
+                            }}
                             disabled={isGeneratingAI}
-                            className="p-3 rounded-lg text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed h-20 flex flex-col justify-between"
+                            className="p-4 rounded-lg text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed flex flex-col justify-between"
                             style={{
                               backgroundColor: isSelected ? 'rgba(234, 179, 8, 0.1)' : 'var(--input-bg)',
                               borderWidth: '1px',
                               borderStyle: 'solid',
                               borderColor: isSelected ? '#EAB308' : 'var(--border-neutral)',
-                              boxShadow: isSelected ? '0 0 0 1px #EAB308, 0 2px 8px rgba(234, 179, 8, 0.2)' : 'none'
+                              boxShadow: isSelected ? '0 0 0 1px #EAB308, 0 2px 8px rgba(234, 179, 8, 0.2)' : 'none',
+                              minHeight: '180px'
                             }}
                           >
-                            <div className="flex items-center gap-2">
-                              <span className="text-base">{template.icon}</span>
-                              <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                                {template.name}
-                              </span>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-base">{template.icon}</span>
+                                <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                  {template.name}
+                                </span>
+                              </div>
+                              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                                {template.prompt}
+                              </p>
                             </div>
-                            <p className="text-xs line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
-                              {template.prompt.split('.')[0]}...
-                            </p>
                           </button>
                         )
                       })}
@@ -390,8 +409,16 @@ Call us today for a free quote!
                   <div className="flex-1 lg:flex-[4]">
                     {selectedTemplateId ? (
                       (() => {
-                        const template = (aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[selectedGoal].templates.find((t: any) => t.id === selectedTemplateId)
+                        const templates = getTemplates()
+                        const template = templates.find((t: any) => t.id === selectedTemplateId)
                         if (!template) return null
+                        
+                        // Find the goal key for this template
+                        const templateGoalKey = template.goalKey || selectedGoal || Object.keys((aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals || {}).find((goalKey: string) => {
+                          const goal = (aiTemplateStructure as any)[selectedIndustry].serviceTypes[selectedServiceType].goals[goalKey]
+                          return goal?.templates?.some((t: any) => t.id === template.id)
+                        })
+                        if (!templateGoalKey) return null
                         
                         const companyName = company?.name || 'Your Company'
                         const samplePrompt = template.prompt.replace('{company}', companyName)
@@ -428,7 +455,7 @@ Call us today for a free quote!
 
                             {/* Action Button */}
                             <button
-                              onClick={() => generatePostContent(template.id, selectedIndustry!, selectedServiceType!, selectedGoal!)}
+                              onClick={() => generatePostContent(template.id, selectedIndustry!, selectedServiceType!, templateGoalKey)}
                               disabled={isGeneratingAI || !selectedCompanyId || !groupId}
                               className="w-full h-10 rounded-lg font-medium text-sm transition-all disabled:opacity-50 hover:opacity-90"
                               style={{

@@ -100,3 +100,19 @@ code, pre, kbd, samp {
 .animate-slide-in-right {
   animation: slide-in-right 0.3s ease-out;
 }
+
+/* Pulse ring animation for loading state */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.pulse-ring-animation {
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
